@@ -154,6 +154,7 @@
 #define IS_BF(x)	(((x) & 0xff00) == 0x8B00)
 #define IS_BTS(x)	(((x) & 0xff00) == 0x8D00)
 #define IS_BFS(x)	(((x) & 0xff00) == 0x8F00)
+#define IS_BTS_OR_BFS(x)    IS_BTS(x)||IS_BFS(x)
 #define IS_BT_OR_BF(x)	IS_BT(x)||IS_BTS(x)||IS_BF(x)||IS_BFS(x)
 
 #define IS_MOVB_R0_GBRREF(x)	(((x) & 0xFF00) == 0xC000)
@@ -876,7 +877,7 @@ static int first_nibble_is_8(RAnal* anal, RAnalOp* op, ut16 code) {
 	if (IS_BT_OR_BF (code)) {
 		op->type = R_ANAL_OP_TYPE_CJMP; //Jump if true or jump if false insns
 		op->jump = disarm_8bit_offset (op->addr, GET_BTF_OFFSET (code));
-		op->fail = op->addr + 2 ;
+		op->fail = IS_BTS_OR_BFS(code) ? op->addr + 4 : op->addr + 2 ; // /S versions have a delay slot, therefore fail branch starts 4 bytes ahead
 		op->eob = true;
 		if (IS_BT (code)) {
 			r_strbuf_setf (&op->esil, "sr,1,&,?{,0x%x,pc,=,}", op->jump);
