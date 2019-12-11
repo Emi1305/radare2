@@ -145,6 +145,39 @@ int linux_handle_signals (RDebug *dbg) {
 #define PT_GETEVENTMSG
 #endif
 
+// Used to remove breakpoints before detaching from a fork, without it the child
+// will die upon hitting a breakpoint while not being traced
+static void linux_remove_fork_bps(RDebug *dbg) {
+	RListIter *iter;
+	RBreakpointItem *b;
+	int prev_pid = dbg->pid;
+	int prev_tid = dbg->tid;
+
+	// Set dbg tid to the new child temporarily
+	dbg->pid = dbg->forked_pid;
+	dbg->tid = dbg->forked_pid;
+	r_debug_select (dbg, dbg->forked_pid, dbg->forked_pid);
+
+	// Unset all hw breakpoints in the child process
+	r_debug_reg_sync (dbg, R_REG_TYPE_DRX, false);
+	r_list_foreach (dbg->bp->bps, iter, b) {
+		r_debug_drx_unset (dbg, r_bp_get_index_at (dbg->bp, b->addr));
+	}
+	r_debug_reg_sync (dbg, R_REG_TYPE_DRX, true);
+
+	// Unset software breakpoints in the child process
+	r_debug_bp_update (dbg);
+	r_bp_restore (dbg->bp, false);
+
+	// Return to the parent
+	dbg->pid = prev_pid;
+	dbg->tid = prev_tid;
+	r_debug_select (dbg, dbg->pid, dbg->pid);
+
+	// Restore sw breakpoints in the parent
+	r_bp_restore (dbg->bp, true);
+}
+
 #ifdef PT_GETEVENTMSG
 /*
  * Handle PTRACE_EVENT_*
@@ -181,25 +214,32 @@ RDebugReasonType linux_ptrace_event (RDebug *dbg, int pid, int status) {
 				r_sys_perror ("ptrace GETEVENTMSG");
 				return R_DEBUG_REASON_ERROR;
 			}
-		//	eprintf ("PTRACE_EVENT_CLONE new_thread=%"PFMT64d"\n", (ut64)data);
 			linux_add_and_attach_new_thread (dbg, (int)data);
 			return R_DEBUG_REASON_NEW_TID;
 		}
 		break;
+	case PTRACE_EVENT_VFORK:
 	case PTRACE_EVENT_FORK:
-		if (dbg->trace_forks) {
-			if (r_debug_ptrace (dbg, PTRACE_GETEVENTMSG, pid, 0, (r_ptrace_data_t)(size_t)&data) == -1) {
-				r_sys_perror ("ptrace GETEVENTMSG");
-				return R_DEBUG_REASON_ERROR;
-			}
-
-		//	eprintf ("PTRACE_EVENT_FORK new_pid=%"PFMT64d"\n", (ut64)data);
-			dbg->forked_pid = data;
-			// TODO: more handling here?
-			/* we have a new process that we are already tracing */
-			return R_DEBUG_REASON_NEW_PID;
+		if (r_debug_ptrace (dbg, PTRACE_GETEVENTMSG, pid, 0, (r_ptrace_data_t)(size_t)&data) == -1) {
+			r_sys_perror ("ptrace GETEVENTMSG");
+			return R_DEBUG_REASON_ERROR;
 		}
-		break;
+
+		dbg->forked_pid = data;
+		if (!dbg->trace_forks) {
+			// The new child has a pending SIGSTOP.  We can't affect it until it
+			// hits the SIGSTOP, but we're already attached.  */
+			if (waitpid (dbg->forked_pid, &status, __WALL) == -1) {
+				perror ("waitpid");
+			}
+			// We need to do this even if the new process will be detached since the
+			// breakpoints are inherited from the parent
+			linux_remove_fork_bps (dbg);
+			if (r_debug_ptrace (dbg, PTRACE_DETACH, dbg->forked_pid, NULL, (r_ptrace_data_t)(size_t)NULL) == -1) {
+				perror ("PTRACE_DETACH");
+			}
+		}
+		return R_DEBUG_REASON_NEW_PID;
 	case PTRACE_EVENT_EXIT:
 		if (r_debug_ptrace (dbg, PTRACE_GETEVENTMSG, pid, 0, (r_ptrace_data_t)(size_t)&data) == -1) {
 			r_sys_perror ("ptrace GETEVENTMSG");
@@ -232,9 +272,9 @@ int linux_step(RDebug *dbg) {
 
 bool linux_set_options(RDebug *dbg, int pid) {
 	int traceflags = 0;
+	traceflags |= PTRACE_O_TRACEFORK;
+	traceflags |= PTRACE_O_TRACEVFORK;
 	if (dbg->trace_forks) {
-		traceflags |= PTRACE_O_TRACEFORK;
-		traceflags |= PTRACE_O_TRACEVFORK;
 		traceflags |= PTRACE_O_TRACEVFORKDONE;
 	}
 	if (dbg->trace_clone) {
@@ -290,22 +330,30 @@ static void linux_remove_thread (RDebug *dbg, int pid) {
 	}
 }
 
-bool linux_select_thread(RDebug *dbg, int pid, int tid) {
+bool linux_select(RDebug *dbg, int pid, int tid) {
+	if (dbg->pid != -1 && dbg->pid != pid) {
+		return linux_attach_new_process (dbg, pid);
+	}
 	return linux_attach (dbg, tid);
 }
 
-void linux_attach_new_process (RDebug *dbg) {
+bool linux_attach_new_process(RDebug *dbg, int pid) {
 	linux_detach_all (dbg);
-
 	if (dbg->threads) {
 		r_list_free (dbg->threads);
 		dbg->threads = NULL;
 	}
-	if (!linux_stop_thread (dbg->forked_pid)) {
-		eprintf ("Could not stop pid (%d)\n", dbg->forked_pid);
+
+	if (!linux_attach (dbg, pid)) {
+		return false;
 	}
-	linux_attach (dbg, dbg->forked_pid);
-	r_debug_select (dbg, dbg->forked_pid, dbg->forked_pid);
+
+	// Call select to syncrhonize the thread's data.
+	dbg->pid = pid;
+	dbg->tid = pid;
+	r_debug_select (dbg, pid, pid);
+
+	return true;
 }
 
 static void linux_dbg_wait_break(RDebug *dbg) {
@@ -332,6 +380,7 @@ repeat:
 		if (r_cons_is_breaked ()) {
 			break;
 		}
+
 		void *bed = r_cons_sleep_begin ();
 		int ret = waitpid (pid, &status, flags);
 		r_cons_sleep_end (bed);
@@ -344,6 +393,10 @@ repeat:
 		} else {
 			int pid = ret;
 			reason = linux_ptrace_event (dbg, pid, status);
+
+			if (reason == R_DEBUG_REASON_NEW_PID) {
+				break;
+			}
 
 			if (reason == R_DEBUG_REASON_EXIT_TID) {
 				r_debug_ptrace (dbg, PTRACE_CONT, pid, NULL, 0);
@@ -439,7 +492,9 @@ static bool linux_stop_thread(int tid) {
 	int status;
 	int ret = -1;
 	if (linux_kill_thread (tid, SIGSTOP)) {
-		ret = waitpid (tid, &status, __WALL);
+		if ((ret = waitpid (tid, &status, __WALL)) == -1) {
+			perror("waitpid");
+		}
 	}
 
 	return ret == tid;
@@ -457,6 +512,12 @@ static bool linux_attach_single_pid(RDebug *dbg, int ptid) {
 			(r_ptrace_data_t)NULL) == -1) {
 			perror ("ptrace (PT_ATTACH)");
 			return false;
+		}
+
+		// Make sure SIGSTOP is delivered and wait for it since we can't affect the pid
+		// until it hits SIGSTOP.
+		if (!linux_stop_thread (ptid)) {
+			eprintf ("Could not stop pid (%d)\n", ptid);
 		}
 	}
 
@@ -596,6 +657,10 @@ RDebugPid *fill_pid_info(const char *info, const char *path, int tid) {
 			break;
 		}
 	}
+	ptr = strstr (info, "PPid:");
+	if (ptr) {
+		pid_info->ppid = atoi (ptr + 5);
+	}
 	ptr = strstr (info, "Uid:");
 	if (ptr) {
 		pid_info->uid = atoi (ptr + 5);
@@ -611,9 +676,46 @@ RDebugPid *fill_pid_info(const char *info, const char *path, int tid) {
 	return pid_info;
 }
 
+RList *linux_pid_list(int pid, RList *list) {
+	list->free = (RListFree)&r_debug_pid_free;
+	DIR *dh = NULL;
+	struct dirent *de = NULL;
+	char path[PATH_MAX], info[PATH_MAX];
+	int i = -1;
+	RDebugPid *pid_info = NULL;
+	dh = opendir ("/proc");
+	if (!dh) {
+		r_sys_perror ("opendir /proc");
+		r_list_free (list);
+		return NULL;
+	}
+	while ((de = readdir (dh))) {
+		path[0] = 0;
+		info[0] = 0;
+		// For each existing pid file
+		if ((i = atoi (de->d_name)) <= 0) {
+			continue;
+		}
+
+		procfs_pid_slurp (i, "cmdline", path, sizeof (path));
+		if (!procfs_pid_slurp (i, "status", info, sizeof (info))) {
+			// Get information about pid (status, pc, etc.)
+			pid_info = fill_pid_info (info, path, i);
+		} else {
+			pid_info = r_debug_pid_new (path, i, 0, R_DBG_PROC_STOP, 0);
+		}
+		// Unless pid 0 is requested, only add the requested pid and it's child processes
+		if (0 == pid || i == pid || pid_info->ppid == pid) {
+			r_list_append (list, pid_info);
+		}
+	}
+	closedir (dh);
+	return list;
+}
+
 RList *linux_thread_list(int pid, RList *list) {
 	int i, thid = 0;
-	char *ptr, buf[1024];
+	char *ptr, buf[PATH_MAX];
 
 	if (!pid) {
 		r_list_free (list);
@@ -631,7 +733,7 @@ RList *linux_thread_list(int pid, RList *list) {
 				continue;
 			}
 			int tid = atoi (de->d_name);
-			char info[1024];
+			char info[PATH_MAX];
 			int uid = 0;
 			if (!procfs_pid_slurp (tid, "status", info, sizeof (info))) {
 				ptr = strstr (info, "Uid:");
@@ -645,7 +747,7 @@ RList *linux_thread_list(int pid, RList *list) {
 						// If we want to attach to just one thread, don't attach to the parent
 						continue;
 					}
-                                }
+				}
 			}
 
 			if (procfs_pid_slurp (tid, "comm", buf, sizeof (buf)) == -1) {

@@ -1164,14 +1164,13 @@ static void setprintmode(RCore *core, int n) {
 		}
 	}
 	switch (core->printidx) {
-	case R_CORE_VISUAL_MODE_PX:
-		core->inc = 16;
-		break;
 	case R_CORE_VISUAL_MODE_PD:
 	case R_CORE_VISUAL_MODE_DB:
 		r_asm_op_init (&op);
-		core->inc = r_asm_disassemble (core->assembler, &op, core->block, R_MIN (32, core->blocksize));
+		r_asm_disassemble (core->assembler, &op, core->block, R_MIN (32, core->blocksize));
 		r_asm_op_fini (&op);
+		break;
+	default:
 		break;
 	}
 }
@@ -1722,7 +1721,7 @@ static void visual_comma(RCore *core) {
 }
 
 static bool isDisasmPrint(int mode) {
-	return (mode == 1 || mode == 2);
+	return (mode == R_CORE_VISUAL_MODE_PD || mode == R_CORE_VISUAL_MODE_DB);
 }
 
 static void cursor_ocur(RCore *core, bool use_ocur) {
@@ -2330,7 +2329,7 @@ R_API int r_core_visual_cmd(RCore *core, const char *arg) {
 	const char *key_s;
 	int i, cols = core->print->cols;
 	int wheelspeed;
-	ut8 ch = och;
+	int ch = och;
 	if ((ut8)ch == KEY_ALTQ) {
 		r_cons_readchar ();
 		ch = 'q';
@@ -4123,7 +4122,7 @@ static void visual_refresh(RCore *core) {
 }
 
 static void visual_refresh_oneshot(RCore *core) {
-	r_core_task_enqueue_oneshot (core, (RCoreTaskOneShot) visual_refresh, core);
+	r_core_task_enqueue_oneshot (&core->tasks, (RCoreTaskOneShot) visual_refresh, core);
 }
 
 R_API void r_core_visual_disasm_up(RCore *core, int *cols) {

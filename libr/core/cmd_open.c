@@ -143,8 +143,10 @@ static const char *help_msg_oob[] = {
 };
 
 static const char *help_msg_ood[] = {
-	"Usage:", "ood [args]", " # reopen in debugger mode (with args)",
-	"oodr"," [rarun2]","same as dor ..;ood",
+	"Usage:", "ood", " # Debug (re)open commands",
+	"ood", " [args]", " # reopen in debug mode (with args)",
+	"oodf", " [file]", " # reopen in debug mode using the given file",
+	"oodr", " [rarun2]", " # same as dor ..;ood",
 	NULL
 };
 
@@ -516,7 +518,7 @@ static void cmd_omf(RCore *core, const char *input) {
 
 static void r_core_cmd_omt(RCore *core, const char *arg) {
 	RTable *t = r_table_new ();
-	
+
 	r_table_set_columnsf (t, "nnnnnnnss", "id", "fd", "pa", "pa_end", "size", "va", "va_end", "perm", "name", NULL);
 
 	SdbListIter *iter;
@@ -805,7 +807,7 @@ static void cmd_open_map(RCore *core, const char *input) {
 			}
 		}
 		break;
-	case '=': // "om=" 
+	case '=': // "om="
 		{
 		RList *list = r_list_newf ((RListFree) r_listinfo_free);
 		if (!list) {
@@ -1046,6 +1048,54 @@ static void __rebase_everything(RCore *core, RList *old_sections, ut64 old_base)
 	ht_up_foreach (old_xrefs, __rebase_refs, &reb);
 	ht_up_free (old_refs);
 	ht_up_free (old_xrefs);
+
+	// BREAKPOINTS
+	r_debug_bp_rebase (core->dbg, new_base);
+}
+
+R_API void r_core_file_reopen_remote_debug(RCore *core, char *uri, ut64 addr) {
+	RCoreFile *ofile = core->file;
+	RIODesc *desc;
+	RCoreFile *file;
+	int fd;
+
+	if (!ofile || !(desc = r_io_desc_get (core->io, ofile->fd)) || !desc->uri) {
+		eprintf ("No file open?\n");
+		return;
+	}
+
+	RList *old_sections = __save_old_sections (core);
+	ut64 old_base = core->bin->cur->o->baddr_shift;
+	int bits = core->assembler->bits;
+	r_config_set_i (core->config, "asm.bits", bits);
+	r_config_set_i (core->config, "cfg.debug", true);
+	// Set referer as the original uri so we could return to it with `oo`
+	desc->referer = desc->uri;
+	desc->uri = strdup (uri);
+
+	if ((file = r_core_file_open (core, uri, R_PERM_R | R_PERM_W, addr))) {
+		fd = file->fd;
+		core->num->value = fd;
+		// if no baddr is defined, use the one provided by the file
+		if (addr == 0) {
+			desc = r_io_desc_get (core->io, file->fd);
+			if (desc->plugin->isdbg) {
+				addr = r_debug_get_baddr(core->dbg, desc->name);
+			} else {
+				addr = r_bin_get_baddr (file->binb.bin);
+			}
+		}
+		r_core_bin_load (core, uri, addr);
+	} else {
+		eprintf ("cannot open file %s\n", uri);
+		return;
+	}
+	r_core_block_read (core);
+	if (r_config_get_i (core->config, "dbg.rebase")) {
+		__rebase_everything (core, old_sections, old_base);
+	}
+	r_list_free (old_sections);
+	r_core_cmd0 (core, "sr PC");
 }
 
 R_API void r_core_file_reopen_debug(RCore *core, const char *args) {
@@ -1583,6 +1633,22 @@ static int cmd_open(void *data, const char *input) {
 			if (input[2] == 'r') { // "oodr"
 				r_core_cmdf (core, "dor %s", input + 3);
 				r_core_file_reopen_debug (core, "");
+			} else if (input[2] == 'f') { // "oodf"
+				char **argv = NULL;
+				int addr = 0;
+				argv = r_str_argv (input + 3, &argc);
+				if (argc == 0) {
+					eprintf ("Usage: oodf (uri://)[/path/to/file] (addr)\n");
+					r_str_argv_free (argv);
+					return 0;
+				}
+				if (argc == 2) {
+					if (r_num_is_valid_input (core->num, argv[1])) {
+						addr = r_num_math (core->num, argv[1]);
+					}
+				}
+				r_core_file_reopen_remote_debug (core, argv[0], addr);
+				r_str_argv_free (argv);
 			} else if ('?' == input[2]) {
 				r_core_cmd_help (core, help_msg_ood);
 			} else {
@@ -1663,6 +1729,7 @@ static int cmd_open(void *data, const char *input) {
 						r_bin_set_baddr (core->bin, orig_baddr);
 						r_config_set_i (core->config, "bin.baddr", orig_baddr);
 						r_core_bin_rebase (core, orig_baddr);
+						r_debug_bp_rebase (core->dbg, orig_baddr);
 						r_core_cmdf (core, "o %s", file);
 						free (file);
 					} else {
@@ -1685,16 +1752,16 @@ static int cmd_open(void *data, const char *input) {
 				eprintf ("This command is disabled in sandbox mode\n");
 				return 0;
 			}
-			if (core->current_task != core->main_task) {
+			if (core->tasks.current_task != core->tasks.main_task) {
 				eprintf ("This command can only be executed on the main task!\n");
 				return 0;
 			}
 			// memleak? lose all settings wtf
 			// if load fails does not fallbacks to previous file
-			r_core_task_sync_end (core);
+			r_core_task_sync_end (&core->tasks);
 			r_core_fini (core);
 			r_core_init (core);
-			r_core_task_sync_begin (core);
+			r_core_task_sync_begin (&core->tasks);
 			if (!r_core_file_open (core, input + 2, R_PERM_R, 0)) {
 				eprintf ("Cannot open file\n");
 			}

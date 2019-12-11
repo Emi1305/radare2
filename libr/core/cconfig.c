@@ -2065,7 +2065,7 @@ static bool cb_scrhighlight(void *user, void *data) {
 }
 
 #if __WINDOWS__
-static int scr_ansicon(void *user, void *data) {
+static bool scr_ansicon(void *user, void *data) {
 	RConfigNode *node = (RConfigNode *) data;
 	if (!strcmp (node->value, "true")) {
 		node->i_value = 1;
@@ -2254,6 +2254,14 @@ static bool cb_seggrn(void *user, void *data) {
 	return true;
 }
 
+static bool cb_cmtoff(void *user, void *data) {
+	RConfigNode *node = (RConfigNode *) data;
+	if (node->i_value || r_str_is_false (node->value)) {
+		free (node->value);
+		node->value = strdup (r_str_bool (node->i_value));
+	}
+	return true;
+}
 
 static bool cb_stopthreads(void *user, void *data) {
 	RCore *core = (RCore *) user;
@@ -2286,6 +2294,12 @@ static bool cb_consbreak(void *user, void *data) {
 static bool cb_teefile(void *user, void *data) {
 	RConfigNode *node = (RConfigNode *) data;
 	r_cons_singleton ()->teefile = node->value;
+	return true;
+}
+
+static bool cb_onestream(void *user, void *data) {
+	RConfigNode *node = (RConfigNode *) data;
+	r_cons_singleton ()->onestream = node->i_value;
 	return true;
 }
 
@@ -2819,7 +2833,7 @@ R_API int r_core_config_init(RCore *core) {
 	{
 		char *pfx = r_sys_getenv("R2_PREFIX");
 #if __WINDOWS__
-		char *invoke_dir = r_sys_prefix (NULL);
+		const char *invoke_dir = r_sys_prefix (NULL);
 		if (!pfx && invoke_dir) {
 			pfx = strdup (invoke_dir);
 		}
@@ -3123,7 +3137,7 @@ R_API int r_core_config_init(RCore *core) {
 	SETPREF ("asm.marks", "true", "Show marks before the disassembly");
 	SETPREF ("asm.cmt.refs", "false", "Show flag and comments from refs in disasm");
 	SETPREF ("asm.cmt.patch", "false", "Show patch comments in disasm");
-	SETPREF ("asm.cmt.off", "nodup", "Show offset comment in disasm (true, false, nodup)");
+	SETCB ("asm.cmt.off", "nodup", &cb_cmtoff, "Show offset comment in disasm (true, false, nodup)");
 	SETPREF ("asm.payloads", "false", "Show payload bytes in disasm");
 
 	/* bin */
@@ -3572,6 +3586,7 @@ R_API int r_core_config_init(RCore *core) {
 	SETDESC (n, "Convert string before display");
 	SETOPTIONS (n, "asciiesc", "asciidot", NULL);
 	SETPREF ("scr.confirmquit", "false", "Confirm on quit");
+	SETCB ("scr.onestream", "false", &cb_onestream, "Force stderr output into stdout (works only if -DONE_STREAM_HACK=1)");
 
 	/* str */
 	SETCB ("str.escbslash", "false", &cb_str_escbslash, "Escape the backslash");

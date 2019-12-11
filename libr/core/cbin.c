@@ -174,6 +174,7 @@ R_API int r_core_bin_set_env(RCore *r, RBinFile *binfile) {
 		ut64 baseaddr = r_bin_get_baddr (r->bin);
 		r_config_set_i (r->config, "bin.baddr", baseaddr);
 		sdb_num_add (r->sdb, "orig_baddr", baseaddr, 0);
+		r->dbg->bp->baddr = baseaddr;
 		r_config_set (r->config, "asm.arch", arch);
 		r_config_set_i (r->config, "asm.bits", bits);
 		r_config_set (r->config, "anal.arch", arch);
@@ -862,7 +863,6 @@ static int bin_info(RCore *r, int mode, ut64 laddr) {
 static int bin_dwarf(RCore *core, int mode) {
 	RBinDwarfRow *row;
 	RListIter *iter;
-	RList *list = NULL;
 	if (!r_config_get_i (core->config, "bin.dbginfo")) {
 		return false;
 	}
@@ -871,7 +871,10 @@ static int bin_dwarf(RCore *core, int mode) {
 	if (!binfile) {
 		return false;
 	}
+	RList *list = NULL;
+	RList *ownlist = NULL;
 	if (plugin && plugin->lines) {
+		// list is not cloned to improve speed. avoid use after free
 		list = plugin->lines (binfile);
 	} else if (core->bin) {
 		// TODO: complete and speed-up support for dwarf
@@ -879,7 +882,7 @@ static int bin_dwarf(RCore *core, int mode) {
 		da = r_bin_dwarf_parse_abbrev (core->bin, mode);
 		r_bin_dwarf_parse_info (da, core->bin, mode);
 		r_bin_dwarf_parse_aranges (core->bin, mode);
-		list = r_bin_dwarf_parse_line (core->bin, mode);
+		list = ownlist = r_bin_dwarf_parse_line (core->bin, mode);
 		r_bin_dwarf_free_debug_abbrev (da);
 		free (da);
 	}
@@ -991,7 +994,7 @@ static int bin_dwarf(RCore *core, int mode) {
 	r_cons_break_pop ();
 	R_FREE (lastFileContents);
 	R_FREE (lastFileContents2);
-	r_list_free (list);
+	r_list_free (ownlist);
 	free (lastFileLines);
 	return true;
 }

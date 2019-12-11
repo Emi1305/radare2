@@ -390,6 +390,7 @@ R_API RDebug *r_debug_new(int hard) {
 		dbg->bp = r_bp_new ();
 		r_debug_plugin_init (dbg);
 		dbg->bp->iob.init = false;
+		dbg->bp->baddr = 0;
 	}
 	return dbg;
 }
@@ -579,6 +580,8 @@ R_API int r_debug_detach(RDebug *dbg, int pid) {
 
 R_API bool r_debug_select(RDebug *dbg, int pid, int tid) {
 	ut64 pc = 0;
+	int prev_pid = dbg->pid;
+	int prev_tid = dbg->tid;
 
 	if (pid < 0) {
 		return false;
@@ -603,10 +606,15 @@ R_API bool r_debug_select(RDebug *dbg, int pid, int tid) {
 		return false;
 	}
 
-	r_io_system (dbg->iob.io, sdb_fmt ("pid %d", tid));
+	// Don't change the pid/tid if the plugin already modified it due to internal constraints
+	if (dbg->pid == prev_pid) {
+		dbg->pid = pid;
+	}
+	if (dbg->tid == prev_tid) {
+		dbg->tid = tid;
+	}
 
-	dbg->pid = pid;
-	dbg->tid = tid;
+	r_io_system (dbg->iob.io, sdb_fmt ("pid %d", dbg->tid));
 
 	// Synchronize with the current thread's data
 	if (dbg->corebind.core) {
@@ -1158,12 +1166,12 @@ repeat:
 #if DEBUGGER
 			/// if the plugin is not compiled link fails, so better do runtime linking
 			/// until this code gets fixed
-			static void (*linux_attach_new_process) (RDebug *dbg) = NULL;
+			static bool (*linux_attach_new_process) (RDebug *dbg, int pid) = NULL;
 			if (!linux_attach_new_process) {
 				linux_attach_new_process = r_lib_dl_sym (NULL, "linux_attach_new_process");
 			}
 			if (linux_attach_new_process) {
-				linux_attach_new_process (dbg);
+				linux_attach_new_process (dbg, dbg->forked_pid);
 			}
 #endif
 			goto repeat;
@@ -1645,9 +1653,6 @@ R_API int r_debug_drx_unset(RDebug *dbg, int idx) {
 }
 
 R_API ut64 r_debug_get_baddr(RDebug *dbg, const char *file) {
-	char *abspath;
-	RListIter *iter;
-	RDebugMap *map;
 	if (!dbg || !dbg->iob.io || !dbg->iob.io->desc) {
 		return 0LL;
 	}
@@ -1667,9 +1672,11 @@ R_API ut64 r_debug_get_baddr(RDebug *dbg, const char *file) {
 	ut64 base;
 	return r_io_desc_get_base (dbg->iob.io->desc, &base), base;
 #else
+	RListIter *iter;
+	RDebugMap *map;
 	r_debug_select (dbg, pid, tid);
 	r_debug_map_sync (dbg);
-	abspath = r_sys_pid_to_path (pid);
+	char *abspath = r_sys_pid_to_path (pid);
 	if (!abspath) {
 		abspath = r_file_abspath (file);
 	}
@@ -1694,4 +1701,16 @@ R_API ut64 r_debug_get_baddr(RDebug *dbg, const char *file) {
 	}
 	return 0LL;
 #endif
+}
+
+R_API void r_debug_bp_rebase(RDebug *dbg, ut64 baddr) {
+	RBreakpointItem *bp;
+	RListIter *iter;
+	// update bp->baddr
+	dbg->bp->baddr = baddr;
+
+	// update bp's address
+	r_list_foreach (dbg->bp->bps, iter, bp) {
+		bp->addr = baddr + bp->delta;
+	}
 }

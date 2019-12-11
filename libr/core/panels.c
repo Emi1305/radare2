@@ -1,4 +1,4 @@
-/* Copyright radare2 2014-2019 - Author: pancake, vane11ope, Kirils Solovjovs */
+/* Copyright radare2 2014-2019 - Author: pancake, vane11ope */
 
 // pls move the typedefs into roons and rename it -> RConsPanel
 
@@ -5177,7 +5177,7 @@ void __do_panels_refresh(RCore *core) {
 }
 
 void __do_panels_refreshOneShot(RCore *core) {
-	r_core_task_enqueue_oneshot (core, (RCoreTaskOneShot) __do_panels_refresh, core);
+	r_core_task_enqueue_oneshot (&core->tasks, (RCoreTaskOneShot) __do_panels_refresh, core);
 }
 
 void __panel_single_step_in(RCore *core) {
@@ -5971,7 +5971,9 @@ void __panels_free(RPanelsRoot *panels_root, int i, RPanels *panels) {
 		sdb_free (panels->db);
 		sdb_free (panels->rotate_db);
 		sdb_free (panels->almighty_db);
-		ht_pp_free (panels->mht);
+		if (panels_root->n_panels <= 1) {
+			ht_pp_free (panels->mht);
+		}
 		free (panels);
 		panels_root->panels[i] = NULL;
 	}
@@ -6488,11 +6490,11 @@ void __del_panels(RCore *core) {
 		core->panels_root->root_state = QUIT;
 		return;
 	}
-	__panels_free (panels_root, panels_root->cur_panels, __get_cur_panels (panels_root));
 	int i;
 	for (i = panels_root->cur_panels; i < panels_root->n_panels - 1; i++) {
 		panels_root->panels[i] = panels_root->panels[i + 1];
 	}
+	__panels_free (panels_root, panels_root->cur_panels, __get_cur_panels (panels_root));
 	panels_root->n_panels--;
 	if (panels_root->cur_panels >= panels_root->n_panels) {
 		panels_root->cur_panels = panels_root->n_panels - 1;

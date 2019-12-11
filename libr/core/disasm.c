@@ -733,6 +733,9 @@ static RDisasmState * ds_init(RCore *core) {
 	ds->show_cmtrefs = r_config_get_i (core->config, "asm.cmt.refs");
 	ds->cmtfold = r_config_get_i (core->config, "asm.cmt.fold");
 	ds->show_cmtoff = r_config_get (core->config, "asm.cmt.off");
+	if (!ds->show_cmtoff) {
+		ds->show_cmtoff = "nodup";
+	}
 	ds->show_functions = r_config_get_i (core->config, "asm.functions");
 	ds->nbytes = r_config_get_i (core->config, "asm.nbytes");
 	ds->show_asciidot = !strcmp (core->print->strconv_mode, "asciidot");
@@ -3025,7 +3028,6 @@ static bool ds_print_meta_infos(RDisasmState *ds, ut8* buf, int len, int idx, in
 					r_cons_printf ("hex length=%" PFMT64d " delta=%d\n", size , delta);
 					r_print_hexdump (core->print, ds->at, buf+idx, hexlen-delta, 16, 1, 1);
 				}
-				core->inc = 16; // ds->oplen; //
 				core->print->flags |= R_PRINT_FLAGS_HEADER;
 				ds->asmop.size = (int)mi->size;
 				R_FREE (ds->line);
@@ -5134,7 +5136,6 @@ R_API int r_core_print_disasm(RPrint *p, RCore *core, ut64 addr, ut8 *buf, int l
 	}
 
 	ds_reflines_init (ds);
-	core->inc = 0;
 	/* reset jmp table if not asked to keep it */
 	if (!core->keep_asmqjmps) { // hack
 		core->asmqjmps_count = 0;
@@ -5319,9 +5320,6 @@ toro:
 		}
 		ds_atabs_option (ds);
 		// TODO: store previous oplen in core->dec
-		if (!core->inc) {
-			core->inc = ds->oplen;
-		}
 		// OOPs. double analysis here?
 #if 0
 		if (ds->analop.mnemonic || !ds->lastfail) {

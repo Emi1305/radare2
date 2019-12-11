@@ -4,6 +4,7 @@
 #include <r_io.h>
 #include <r_lib.h>
 #include <r_util.h>
+#include <r_cons.h>
 #include <r_debug.h> /* only used for BSD PTRACE redefinitions */
 #include <string.h>
 
@@ -144,7 +145,7 @@ static int fork_and_ptraceme(RIO *io, int bits, const char *cmd) {
 	inst->params->func.func = __createprocess_wrap;
 	inst->params->func.user = &p;
 	w32dbg_wrap_wait_ret (inst);
-	if (!w32dbgw_intret (inst)) {
+	if (!w32dbgw_ret (inst)) {
 		w32dbgw_err (inst);
 		r_sys_perror ("fork_and_ptraceme/CreateProcess");
 		free (appname_);
@@ -164,7 +165,7 @@ static int fork_and_ptraceme(RIO *io, int bits, const char *cmd) {
 	inst->params->wait.wait_time = 10000;
 	inst->params->wait.de = &de;
 	w32dbg_wrap_wait_ret (inst);
-	if (!w32dbgw_intret (inst)) goto err_fork;
+	if (!w32dbgw_ret (inst)) goto err_fork;
 
 	/* check if is a create process debug event */
 	if (de.dwDebugEventCode != CREATE_PROCESS_DEBUG_EVENT) {
@@ -457,6 +458,7 @@ static void fork_child_callback(void *user) {
 static int fork_and_ptraceme_for_unix(RIO *io, int bits, const char *cmd) {
 	int ret, status, child_pid;
 	bool runprofile = io->runprofile && *(io->runprofile);
+	void *bed = NULL;
 	fork_child_data child_data;
 	child_data.io = io;
 	child_data.bits = bits;
@@ -472,22 +474,25 @@ static int fork_and_ptraceme_for_unix(RIO *io, int bits, const char *cmd) {
 	default:
 		/* XXX: clean this dirty code */
 		do {
-			ret = wait (&status);
+			ret = waitpid (child_pid, &status, WNOHANG);
 			if (ret == -1) {
+				perror ("waitpid");
 				return -1;
 			}
-			if (ret != child_pid) {
-				eprintf ("Wait event received by "
-					"different pid %d\n", ret);
-			}
-		} while (ret != child_pid);
+			bed = r_cons_sleep_begin ();
+			usleep (100000);
+			r_cons_sleep_end (bed);
+		} while (ret != child_pid && !r_cons_is_breaked ());
 		if (WIFSTOPPED (status)) {
 			eprintf ("Process with PID %d started...\n", (int)child_pid);
-		}
-		if (WEXITSTATUS (status) == MAGIC_EXIT) {
+		} else if (WEXITSTATUS (status) == MAGIC_EXIT) {
 			child_pid = -1;
+		} else if (r_cons_is_breaked ()) {
+			kill (child_pid, SIGSTOP);
+		} else {
+			eprintf ("Killing child process %d due to an error\n", (int)child_pid);
+			kill (child_pid, SIGSTOP);
 		}
-		// XXX kill (pid, SIGSTOP);
 		break;
 	}
 	return child_pid;

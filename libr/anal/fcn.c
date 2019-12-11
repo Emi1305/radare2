@@ -183,7 +183,7 @@ static void _fcn_tree_calc_max_addr(RBNode *node) {
 	}
 }
 
-static void _fcn_tree_free(RBNode *node) {
+static void _fcn_tree_free(RBNode *node, void *user) {
 	// TODO RB tree is an intrusive data structure by embedding RBNode into RAnalFunction.
 	// Currently fcns takes the ownership of the resources.
 	// If the ownership transfers from fcns to fcn_tree:
@@ -219,8 +219,8 @@ static RBNode *_fcn_tree_probe(FcnTreeIter *it, RBNode *x_, ut64 from, ut64 to) 
 }
 
 R_API bool r_anal_fcn_tree_delete(RAnal *anal, RAnalFunction *fcn) {
-	bool ret_min = !!r_rbtree_aug_delete (&anal->fcn_tree, fcn, _fcn_tree_cmp, _fcn_tree_free, _fcn_tree_calc_max_addr, NULL);
-	bool ret_addr = !!r_rbtree_delete (&anal->fcn_addr_tree, fcn, _fcn_addr_tree_cmp, NULL, NULL);
+	bool ret_min = !!r_rbtree_aug_delete (&anal->fcn_tree, fcn, _fcn_tree_cmp, NULL, _fcn_tree_free, NULL, _fcn_tree_calc_max_addr);
+	bool ret_addr = !!r_rbtree_delete (&anal->fcn_addr_tree, fcn, _fcn_addr_tree_cmp, NULL, NULL, NULL);
 	if (ret_min != ret_addr) {
 		eprintf ("WARNING: r_anal_fcn_tree_delete: check 'ret_min == ret_addr' failed\n");
 		return false;
@@ -230,12 +230,12 @@ R_API bool r_anal_fcn_tree_delete(RAnal *anal, RAnalFunction *fcn) {
 }
 
 R_API void r_anal_fcn_tree_insert(RAnal *anal, RAnalFunction *fcn) {
-	r_rbtree_aug_insert (&anal->fcn_tree, fcn, &(fcn->rb), _fcn_tree_cmp, _fcn_tree_calc_max_addr, NULL);
+	r_rbtree_aug_insert (&anal->fcn_tree, fcn, &(fcn->rb), _fcn_tree_cmp, NULL, _fcn_tree_calc_max_addr);
 	r_rbtree_insert (&anal->fcn_addr_tree, fcn, &(fcn->addr_rb), _fcn_addr_tree_cmp, NULL);
 }
 
 static void _fcn_tree_update_size(RAnal *anal, RAnalFunction *fcn) {
-	r_rbtree_aug_update_sum (anal->fcn_tree, fcn, &(fcn->rb), _fcn_tree_cmp, _fcn_tree_calc_max_addr, NULL);
+	r_rbtree_aug_update_sum (anal->fcn_tree, fcn, &(fcn->rb), _fcn_tree_cmp, NULL, _fcn_tree_calc_max_addr);
 }
 
 #if 0
@@ -450,6 +450,7 @@ static RAnalBlock *appendBasicBlock(RAnal *anal, RAnalFunction *fcn, ut64 addr) 
 		bb->jump = UT64_MAX;
 		bb->fail = UT64_MAX;
 		bb->type = 0; // TODO
+		bb->parent_stackptr = fcn->stack;
 		r_anal_fcn_bbadd (fcn, bb);
 		if (anal->cb.on_fcn_bb_new) {
 			anal->cb.on_fcn_bb_new (anal, anal->user, fcn, bb);
@@ -1212,12 +1213,17 @@ repeat:
 					}
 				}
 			}
+			int saved_stack = fcn->stack;
 			if (continue_after_jump) {
 				r_anal_fcn_bb (anal, fcn, op.jump, depth);
+				fcn->stack = saved_stack;
 				ret = r_anal_fcn_bb (anal, fcn, op.fail, depth);
+				fcn->stack = saved_stack;
 			} else {
 				ret = r_anal_fcn_bb (anal, fcn, op.jump, depth);
+				fcn->stack = saved_stack;
 				ret = r_anal_fcn_bb (anal, fcn, op.fail, depth);
+				fcn->stack = saved_stack;
 				if (op.jump < fcn->addr) {
 					if (!overlapped) {
 						bb->jump = op.jump;
@@ -1592,6 +1598,9 @@ R_API int r_anal_fcn(RAnal *anal, RAnalFunction *fcn, ut64 addr, ut64 len, int r
 	}
 	r_anal_fcn_set_size (NULL, fcn, 0); // fcn is not yet in anal => pass NULL
 	fcn->maxstack = 0;
+	if (fcn->cc && !strcmp (fcn->cc, "ms")) {
+		fcn->stack = fcn->maxstack = 0x28; // Shadow store for the first 4 args + Return addr
+	}
 	int ret = r_anal_fcn_bb (anal, fcn, addr, anal->opt.depth);
 	if (ret == -1) {
 		if (anal->verbose) {
@@ -1932,6 +1941,7 @@ R_API int r_anal_fcn_split_bb(RAnal *anal, RAnalFunction *fcn, RAnalBlock *bbi, 
 		bb->jump = bbi->jump;
 		bb->fail = bbi->fail;
 		bb->conditional = bbi->conditional;
+		bb->parent_stackptr = bbi->stackptr;
 	}
 	FITFCNSZ ();
 	bbi->size = addr - bbi->addr;

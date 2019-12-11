@@ -696,7 +696,7 @@ static ut64 num_callback(RNum *userptr, const char *str, int *ok) {
 				}
 				*ptr = '\0';
 				RFlagItem *flag = r_flag_get (core->flags, bptr);
-				ret = flag? flag->size: 0LL; // flag 
+				ret = flag? flag->size: 0LL; // flag
 				free (bptr);
 				free (out);
 				return ret;
@@ -1065,7 +1065,7 @@ static void autocomplete_ms_path(RLineCompletion *completion, RCore *core, const
 		*p = 0;
 		if (p == lpath) { // /xxx
 			dirname  = r_str_new ("/");
-		} else if (lpath[0] == '.') { // ./xxx/yyy 
+		} else if (lpath[0] == '.') { // ./xxx/yyy
 			dirname = r_str_newf ("%s%s", pwd, R_SYS_DIR);
 		} else if (lpath[0] == '/') { // /xxx/yyy
       			dirname = r_str_newf ("%s%s", lpath, R_SYS_DIR);
@@ -2059,8 +2059,8 @@ R_API char *r_core_anal_hasrefs(RCore *core, ut64 value, bool verbose) {
 }
 
 static char *r_core_anal_hasrefs_to_depth(RCore *core, ut64 value, int depth) {
-	r_return_val_if_fail (core && value != UT64_MAX, NULL);
-	if (depth < 1) {
+	r_return_val_if_fail (core, NULL);
+	if (depth < 1 || value == UT64_MAX) {
 		return NULL;
 	}
 	RStrBuf *s = r_strbuf_new (NULL);
@@ -2310,15 +2310,10 @@ static bool r_core_anal_read_at(struct r_anal_t *anal, ut64 addr, ut8 *buf, int 
 }
 
 static void r_core_break (RCore *core) {
-	// if we are not in the main thread we hold in a lock
-	RCoreTask *task = r_core_task_self (core);
-	if (task) {
-		r_core_task_continue (task);
-	}
 }
 
 static void *r_core_sleep_begin (RCore *core) {
-	RCoreTask *task = r_core_task_self (core);
+	RCoreTask *task = r_core_task_self (&core->tasks);
 	if (task) {
 		r_core_task_sleep_begin (task);
 	}
@@ -2577,17 +2572,7 @@ R_API bool r_core_init(RCore *core) {
 	core->print->use_comments = false;
 	core->rtr_n = 0;
 	core->blocksize_max = R_CORE_BLOCKSIZE_MAX;
-	core->task_id_next = 0;
-	core->tasks = r_list_newf ((RListFree)r_core_task_decref);
-	core->tasks_queue = r_list_new ();
-	core->oneshot_queue = r_list_newf (free);
-	core->oneshots_enqueued = 0;
-	core->tasks_lock = r_th_lock_new (true);
-	core->tasks_running = 0;
-	core->oneshot_running = false;
-	core->main_task = r_core_task_new (core, false, NULL, NULL, NULL);
-	r_list_append (core->tasks, core->main_task);
-	core->current_task = NULL;
+	r_core_task_scheduler_init (&core->tasks, core);
 	core->watchers = r_list_new ();
 	core->watchers->free = (RListFree)r_core_cmpwatch_free;
 	core->scriptstack = r_list_new ();
@@ -2602,7 +2587,6 @@ R_API bool r_core_init(RCore *core) {
 	core->cmdrepeat = true;
 	core->yank_buf = r_buf_new ();
 	core->num = r_num_new (&num_callback, &str_callback, core);
-	core->curasmstep = 0;
 	core->egg = r_egg_new ();
 	r_egg_setup (core->egg, R_SYS_ARCH, R_SYS_BITS, 0, R_SYS_OS);
 
@@ -2770,8 +2754,8 @@ R_API void r_core_fini(RCore *c) {
 	if (!c) {
 		return;
 	}
-	r_core_task_break_all (c);
-	r_core_task_join (c, NULL, -1);
+	r_core_task_break_all (&c->tasks);
+	r_core_task_join (&c->tasks, NULL, -1);
 	r_core_wait (c);
 	/* TODO: it leaks as shit */
 	//update_sdb (c);
@@ -2799,10 +2783,7 @@ R_API void r_core_fini(RCore *c) {
 	r_list_free (c->files);
 	r_list_free (c->watchers);
 	r_list_free (c->scriptstack);
-	r_list_free (c->tasks);
-	r_list_free (c->tasks_queue);
-	r_list_free (c->oneshot_queue);
-	r_th_lock_free (c->tasks_lock);
+	r_core_task_scheduler_fini (&c->tasks);
 	c->rcmd = r_cmd_free (c->rcmd);
 	r_list_free (c->cmd_descriptors);
 	c->anal = r_anal_free (c->anal);
@@ -2843,22 +2824,16 @@ R_API void r_core_free(RCore *c) {
 R_API void r_core_prompt_loop(RCore *r) {
 	int ret;
 	do {
-		if (r_core_prompt (r, false) < 1) {
+		int err = r_core_prompt (r, false);
+		if (err < 1) {
+			// handle ^D
+			r->num->value = 0; // r.num->value will be read by r_main_radare2() after calling this fcn
 			break;
 		}
-//			if (lock) r_th_lock_enter (lock);
-		if ((ret = r_core_prompt_exec (r))==-1) {
-			eprintf ("Invalid command\n");
+		/* -1 means invalid command, -2 means quit prompt loop */
+		if ((ret = r_core_prompt_exec (r)) == -2) {
+			break;
 		}
-/*			if (lock) r_th_lock_leave (lock);
-		if (rabin_th && !r_th_wait_async (rabin_th)) {
-			eprintf ("rabin thread end \n");
-			r_th_kill_free (rabin_th);
-			r_th_lock_free (lock);
-			lock = NULL;
-			rabin_th = NULL;
-		}
-*/
 	} while (ret != R_CORE_CMD_EXIT);
 }
 

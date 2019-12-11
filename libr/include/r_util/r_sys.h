@@ -80,7 +80,7 @@ R_API int r_sys_cmd_str_full(const char *cmd, const char *input, char **output, 
 #define r_sys_conv_utf8_to_win(buf) r_utf8_to_utf16 (buf)
 #define r_sys_conv_utf8_to_win_l(buf, len) r_utf8_to_utf16_l (buf, len)
 #define r_sys_conv_win_to_utf8(buf) r_utf16_to_utf8 (buf)
-#define r_sys_conv_win_to_utf8_l(buf, len) r_utf16_to_utf8_l (buf, len)
+#define r_sys_conv_win_to_utf8_l(buf, len) r_utf16_to_utf8_l ((wchar_t *)buf, len)
 #else
 #define W32_TCHAR_FSTR "%s"
 #define W32_TCALL(name) name"A"

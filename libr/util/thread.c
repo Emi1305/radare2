@@ -56,9 +56,9 @@ R_API R_TH_TID r_th_self(void) {
 #if HAVE_PTHREAD
 	return pthread_self ();
 #elif __WINDOWS__
-	return (HANDLE)GetCurrentThreadId ();
+	return GetCurrentThread ();
 #else
-#pragma message("Not implemented on windows")
+#pragma message("Not implemented on this platform")
 	return (R_TH_TID)-1;
 #endif
 }
@@ -142,7 +142,7 @@ R_API bool r_th_setaffinity(RThread *th, int cpuid) {
 		eprintf ("Failed to set cpu affinity\n");
 		return false;
 	}
-#elif _WINDOWS
+#elif __WINDOWS__
 	if (SetThreadAffinityMask (th->tid, (DWORD_PTR)1 << cpuid) == 0) {
 		eprintf ("Failed to set cpu affinity\n");
 		return false;
@@ -158,7 +158,7 @@ R_API RThread *r_th_new(R_TH_FUNCTION(fun), void *user, int delay) {
 	if (th) {
 		th->lock = r_th_lock_new (false);
 		th->running = false;
-		th->fun = fun;	
+		th->fun = fun;
 		th->user = user;
 		th->delay = delay;
 		th->breaked = false;

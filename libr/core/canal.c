@@ -3322,6 +3322,8 @@ R_API void r_core_recover_vars(RCore *core, RAnalFunction *fcn, bool argonly) {
 		if (bb->size > max_bb_size) {
 			continue;
 		}
+		int saved_stack = fcn->stack;
+		fcn->stack = bb->parent_stackptr;
 		ut64 pos = bb->addr;
 		while (pos < bb->addr + bb->size) {
 			if (r_cons_is_breaked ()) {
@@ -3334,6 +3336,11 @@ R_API void r_core_recover_vars(RCore *core, RAnalFunction *fcn, bool argonly) {
 			}
 			r_anal_extract_rarg (core->anal, op, fcn, reg_set, &count);
 			if (!argonly) {
+				if (op->stackop == R_ANAL_STACK_INC) {
+					fcn->stack += op->stackptr;
+				} else if (op->stackop == R_ANAL_STACK_RESET) {
+					fcn->stack = 0;
+				}
 				r_anal_extract_vars (core->anal, fcn, op);
 			}
 			int opsize = op->size;
@@ -3343,6 +3350,7 @@ R_API void r_core_recover_vars(RCore *core, RAnalFunction *fcn, bool argonly) {
 			}
 			pos += opsize;
 		}
+		fcn->stack = saved_stack;
 	}
 }
 
@@ -4019,6 +4027,8 @@ R_API int r_core_anal_all(RCore *core) {
 		r_core_cmd0 (core, "af");
 	}
 
+	r_core_task_yield (&core->tasks);
+
 	r_cons_break_push (NULL, NULL);
 	/* Symbols (Imports are already analyzed by rabin2 on init) */
 	if ((list = r_bin_get_symbols (core->bin)) != NULL) {
@@ -4037,6 +4047,7 @@ R_API int r_core_anal_all(RCore *core) {
 			}
 		}
 	}
+	r_core_task_yield (&core->tasks);
 	/* Main */
 	if ((binmain = r_bin_get_sym (core->bin, R_BIN_SYM_MAIN))) {
 		if (binmain->paddr != UT64_MAX) {
@@ -4044,6 +4055,7 @@ R_API int r_core_anal_all(RCore *core) {
 			r_core_anal_fcn (core, addr, -1, R_ANAL_REF_TYPE_NULL, depth - 1);
 		}
 	}
+	r_core_task_yield (&core->tasks);
 	if ((list = r_bin_get_entries (core->bin))) {
 		r_list_foreach (list, iter, entry) {
 			if (entry->paddr == UT64_MAX) {
@@ -4053,6 +4065,7 @@ R_API int r_core_anal_all(RCore *core) {
 			r_core_anal_fcn (core, addr, -1, R_ANAL_REF_TYPE_NULL, depth - 1);
 		}
 	}
+	r_core_task_yield (&core->tasks);
 	if (anal_vars) {
 		/* Set fcn type to R_ANAL_FCN_TYPE_SYM for symbols */
 		r_list_foreach (core->anal->fcns, iter, fcni) {

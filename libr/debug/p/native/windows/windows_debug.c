@@ -159,14 +159,12 @@ static inline PTHREAD_ITEM __find_thread(RDebug *dbg, int tid) {
 
 static PTHREAD_ITEM __r_debug_thread_add(RDebug *dbg, DWORD pid, DWORD tid, HANDLE hThread, LPVOID lpThreadLocalBase, LPVOID lpStartAddress, BOOL bFinished) {
 	r_return_val_if_fail (dbg, NULL);
-	PVOID startAddress = 0;
 	if (!dbg->threads) {
 		dbg->threads = r_list_newf (free);
 	}
 	if (!lpStartAddress) {
 		w32_NtQueryInformationThread (hThread, 9, &lpStartAddress, sizeof (LPVOID), NULL);
 	}
-	RListIter *it;
 	THREAD_ITEM th = {
 			pid,
 			tid,
@@ -358,8 +356,8 @@ static void __printwincontext(HANDLE th, CONTEXT *ctx) {
 	int x, nxmm = 0, nymm = 0;
 #if _WIN64
 	eprintf ("ControlWord   = %08x StatusWord   = %08x\n", ctx->FltSave.ControlWord, ctx->FltSave.StatusWord);
-	eprintf ("MxCsr         = %08x TagWord      = %08x\n", ctx->MxCsr, ctx->FltSave.TagWord);
-	eprintf ("ErrorOffset   = %08x DataOffset   = %08x\n", ctx->FltSave.ErrorOffset, ctx->FltSave.DataOffset);
+	eprintf ("MxCsr         = %08lx TagWord      = %08x\n", ctx->MxCsr, ctx->FltSave.TagWord);
+	eprintf ("ErrorOffset   = %08lx DataOffset   = %08lx\n", ctx->FltSave.ErrorOffset, ctx->FltSave.DataOffset);
 	eprintf ("ErrorSelector = %08x DataSelector = %08x\n", ctx->FltSave.ErrorSelector, ctx->FltSave.DataSelector);
 	for (x = 0; x < 8; x++) {
 		st[x].Low = ctx->FltSave.FloatRegisters[x].Low;
@@ -468,7 +466,7 @@ int w32_reg_read(RDebug *dbg, int type, ut8 *buf, int size) {
 
 static void __transfer_drx(RDebug *dbg, ut8 *buf) {
 	CONTEXT cur_ctx;
-	if (w32_reg_read (dbg, R_REG_TYPE_ALL, &cur_ctx, sizeof (CONTEXT))) {
+	if (w32_reg_read (dbg, R_REG_TYPE_ALL, (ut8 *)&cur_ctx, sizeof (CONTEXT))) {
 		CONTEXT *new_ctx = (CONTEXT *)buf;
 		size_t drx_size = offsetof (CONTEXT, Dr7) - offsetof (CONTEXT, Dr0) + sizeof (new_ctx->Dr7);
 		memcpy (&cur_ctx.Dr0, &new_ctx->Dr0, drx_size);
@@ -796,7 +794,8 @@ int w32_kill(RDebug *dbg, int pid, int tid, int sig) {
 	return ret;
 }
 
-void w32_break_process(RDebug *dbg) {
+void w32_break_process(void *user) {
+	RDebug *dbg = (RDebug *)user;
 	RIOW32Dbg *rio = dbg->user;
 	if (dbg->corebind.cfggeti (dbg->corebind.core, "dbg.threads")) {
 		w32_select (dbg, rio->pi.dwProcessId, 0); // Suspend all threads
@@ -890,7 +889,7 @@ int w32_dbg_wait(RDebug *dbg, int pid) {
 			void *bed = r_cons_sleep_begin ();
 			w32dbg_wrap_wait_ret (rio->inst);
 			r_cons_sleep_end (bed);
-			if (!w32dbgw_intret (inst)) {
+			if (!w32dbgw_ret (inst)) {
 				if (w32dbgw_err (inst) != ERROR_SEM_TIMEOUT) {
 					r_sys_perror ("w32_dbg_wait/WaitForDebugEvent");
 					ret = -1;
@@ -925,7 +924,7 @@ int w32_dbg_wait(RDebug *dbg, int pid) {
 			rio->pi.hProcess = de.u.CreateProcessInfo.hProcess;
 			rio->pi.hThread = de.u.CreateProcessInfo.hThread;
 			rio->pi.dwProcessId = pid;
-			rio->winbase = de.u.CreateProcessInfo.lpBaseOfImage;
+			rio->winbase = (ULONG_PTR)de.u.CreateProcessInfo.lpBaseOfImage;
 			ret = R_DEBUG_REASON_NEW_PID;
 			next_event = 0;
 			break;
@@ -1036,7 +1035,7 @@ int w32_dbg_wait(RDebug *dbg, int pid) {
 		default:
 			// This case might be reached if break doesn't trigger an event
 			if (ret != R_DEBUG_REASON_USERSUSP) {
-				eprintf ("(%d) unknown event: %d\n", pid, de.dwDebugEventCode);
+				eprintf ("(%d) unknown event: %lu\n", pid, de.dwDebugEventCode);
 				ret = -1;
 			}
 			goto end;
@@ -1094,7 +1093,7 @@ int w32_continue(RDebug *dbg, int pid, int tid, int sig) {
 	inst->params->tid = rio->pi.dwThreadId;
 	inst->params->continue_status = continue_status;
 	w32dbg_wrap_wait_ret (inst);
-	if (!w32dbgw_intret (inst)) {
+	if (!w32dbgw_ret (inst)) {
 		w32dbgw_err (inst);
 		r_sys_perror ("w32_continue/ContinueDebugEvent");
 		return -1;

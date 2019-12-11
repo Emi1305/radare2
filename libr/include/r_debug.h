@@ -404,6 +404,7 @@ typedef struct r_debug_plugin_t {
 // TODO: rename to r_debug_process_t ? maybe a thread too ?
 typedef struct r_debug_pid_t {
 	int pid;
+	int ppid;
 	char status; /* stopped, running, zombie, sleeping ,... */
 	int runnable; /* when using 'run', 'continue', .. this proc will be runnable */
 	bool signalled;
@@ -534,6 +535,8 @@ R_API bool r_debug_arg_set(RDebug *dbg, int fast, int num, ut64 value);
 
 /* breakpoints (most in r_bp, this calls those) */
 R_API RBreakpointItem *r_debug_bp_add(RDebug *dbg, ut64 addr, int hw, bool watch, int rw, char *module, st64 m_delta);
+R_API void r_debug_bp_rebase(RDebug *dbg, ut64 baddr);
+R_API void r_debug_bp_update(RDebug *dbg);
 
 /* pid */
 R_API int r_debug_thread_list(RDebug *dbg, int pid, char fmt);
