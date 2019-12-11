@@ -8,11 +8,11 @@
 #define JMPTBL_MAXSZ 512
 
 static void queue_case(RAnal *anal, ut64 switch_addr, int offset_sz, ut64 case_addr, ut64 id, ut64 case_addr_loc) {
-	// eprintf ("** queue_case: 0x%"PFMT64x " from 0x%"PFMT64x "\n", case_addr, case_addr_loc);
+	//eprintf ("** queue_case: 0x%"PFMT64x " from 0x%"PFMT64x "\n", case_addr, case_addr_loc);
 	r_strbuf_appendf (anal->cmdtail,
 		"Cd %d @ 0x%08"PFMT64x"\n", offset_sz, case_addr_loc);
 	r_strbuf_appendf (anal->cmdtail,
-		"ahi 10 @ 0x%08"PFMT64x"\n", case_addr_loc);
+		"ahi 16 @ 0x%08"PFMT64x"\n", case_addr_loc);
 	r_strbuf_appendf (anal->cmdtail,
 		"axc 0x%"PFMT64x " 0x%"PFMT64x "\n",
 		(ut64)case_addr, (ut64)switch_addr);
@@ -340,3 +340,97 @@ R_API bool try_get_jmptbl_info(RAnal *anal, RAnalFunction *fcn, ut64 addr, RAnal
 	// 		*table_size);
 	return isValid;
 }
+
+
+/* Dolphin */
+R_API try_walkthrough_sh4_jmptbl(RAnal *anal, RAnalFunction *fcn, int depth, ut64 ip, ut64 jmptbl_loc, ut64 sz, ut64 jmptbl_size, int ret0) {
+	/*
+	 * Example jmptbl for sh4
+	 *
+     * 0x0002af20      11c7           mova @(0x44,pc), r0         ; 0x2af64
+     * 0x0002af22      2c32           add r2, r2
+     * 0x0002af24      2d02           mov.w @(r0,r2), r2
+     * 0x0002af26      2302           braf r2
+     * 0x0002af28      0900           nop
+     * [...]
+     * 0x0002af60      .dword 0xfffe5e34
+     * ; DATA XREF from sym.snmp_pdu_parse @ 0x2af20
+     * 0x0002af64      .dword 0xfffe4b92
+     * 0x0002af68      .dword 0xfd7efd7e
+     * 0x0002af6a      .dword 0xfd76fd7e
+     * 0x0002af6e      .dword 0x0056fd7e
+     * 0x0002af72      .dword 0xfd7efd7e
+     * 0x0002af76      .dword 0xfd76fd7e
+     * 0x0002af7a      0900           nop
+     * 0x0002af7c      0900           nop
+     * 0x0002af7e      0900           nop
+	 */
+
+	ut64 offs, jmpptr;
+	int ret = ret0;
+    int index;
+    ut32 dst_addr;
+
+    eprintf("[Dolphin] Starting jmptbl analysis at 0x%x\n", ip);
+	if (jmptbl_size == 0) {
+		jmptbl_size = JMPTBL_MAXSZ;
+	}
+    ut16 *buf = malloc(sizeof(ut16));
+
+	//for (offs = 0, index = 0; offs + sz - 1 < jmptbl_size * sz; offs += sz, index++) {
+	//	jmpptr = jmptbl_loc + offs;
+    //    anal->iob.read_at (anal->iob.io, jmpptr, buf, sizeof(ut16));
+    //    // TODO: All jmptbls end with nops? 
+    //    if (!memcmp (buf, anal->big_endian ? "\x00\x09" : "\x09\x00", 2)) {
+    //        break;
+    //    }
+    //    dst_addr = (ip&~0xffff)|(ip+4 + *buf)&0xffff;
+    //    if (dst_addr&0x1) {
+    //        eprintf("[Dolphin] Error: Wrong destination address 0x%x -> 0x%x from 0x%x (0x%x)\n", jmpptr, dst_addr, ip, *buf);
+    //        goto fail;
+    //    }
+    //}
+	for (offs = 0, index = 0; offs + sz - 1 < jmptbl_size * sz; offs += sz, index++) {
+		jmpptr = jmptbl_loc + offs;
+        
+        //eprintf("[Dolphin] Reading buf at: %x\n", jmpptr);
+        anal->iob.read_at (anal->iob.io, jmpptr, buf, sizeof(ut16));
+        //eprintf("[Dolphin] Read buf: %x\n", *buf);
+        // TODO: All jmptbls end with nops? 
+        if (!memcmp (buf, anal->big_endian ? "\x00\x09" : "\x09\x00", 2)) {
+            break;
+        }
+        dst_addr = (ip&~0xffff)|(ip+4 + *buf)&0xffff;
+        if (dst_addr == ip+2) {
+            continue; // Actually this case throws an ILLSLOT exception. Should we handling this differently?
+        }
+        if (dst_addr&0x1) {
+            eprintf("[Dolphin] Error: Wrong destination address 0x%x -> 0x%x from 0x%x (0x%x)\n", jmpptr, dst_addr, ip, *buf);
+            continue;
+        }
+        //eprintf("[Dolphin] Destination %x at % x from %x\n", dst_addr, jmpptr, ip);
+		queue_case (anal, ip, sz, dst_addr, index, jmpptr);
+		(void)r_anal_fcn_bb (anal, fcn, dst_addr, depth - 1);
+
+	}
+
+	if (offs > 0) {
+		//eprintf("\n\nSwitch statement at 0x%llx:\n", ip);
+		r_strbuf_appendf (anal->cmdtail,
+			"CCu switch table (%d cases) at 0x%"PFMT64x " @ 0x%"PFMT64x "\n",
+			offs / sz, jmptbl_loc, ip);
+		r_strbuf_appendf (anal->cmdtail,
+			"f switch.0x%08"PFMT64x" 1 @ 0x%08"PFMT64x"\n",
+			ip, ip);
+		// if (default_case != 0 && default_case != UT64_MAX && default_case != UT32_MAX) {
+		// 	r_strbuf_appendf (anal->cmdtail,
+		// 		"f case.default.0x%"PFMT64x " 1 @ 0x%08"PFMT64x "\n",
+		// 		default_case, default_case);
+		// }
+
+	}
+fail:
+    free(buf);
+	return ret;
+}
+/***********/
