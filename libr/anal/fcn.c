@@ -448,6 +448,11 @@ static int fcn_recurse(RAnal *anal, RAnalFunction *fcn, ut64 addr, ut64 len, int
 	const char *bp_reg = anal->reg->name[R_REG_NAME_BP];
 	const char *sp_reg = anal->reg->name[R_REG_NAME_SP];
 	bool has_stack_regs = bp_reg && sp_reg;
+    /* Dolphin */
+    bool is_sh4 = anal->cur->arch && !strncmp (anal->cur->arch, "sh", 2);
+	char *last_sh4_reg_name = NULL;
+	ut64 last_sh4_reg_val = UT64_MAX;
+    /***********/
 
 	if (r_cons_is_breaked ()) {
 		return R_ANAL_RET_END;
