@@ -357,11 +357,6 @@ R_API try_walkthrough_sh4_jmptbl(RAnal *anal, RAnalFunction *fcn, RAnalBlock blo
      * 0x0002af7e      0900           nop
 	 */
 
-
-    /*
-     * Example jmptbl for sh4 from a dreamcast rom
-     */
-
 	ut64 offs, jmpptr;
 	int ret = ret0;
     int index;
