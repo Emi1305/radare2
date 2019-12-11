@@ -423,6 +423,11 @@ static int fcn_recurse(RAnal *anal, RAnalFunction *fcn, ut64 addr, ut64 len, int
 	char tmp_buf[MAX_FLG_NAME_SIZE + 5] = "skip";
 	bool is_x86 = is_arm? false: anal->cur->arch && !strncmp (anal->cur->arch, "x86", 3);
 	bool is_dalvik = is_x86? false: anal->cur->arch && !strncmp (anal->cur->arch, "dalvik", 6);
+    /* Dolphin */
+    bool is_sh4 = anal->cur->arch && !strncmp (anal->cur->arch, "sh", 2);
+	char *last_sh4_reg_name = NULL;
+	ut64 last_sh4_reg_val = UT64_MAX;
+    /***********/
 
 	if (r_cons_is_breaked ()) {
 		return R_ANAL_RET_END;
@@ -808,6 +813,13 @@ repeat:
 			}
 			break;
 		case R_ANAL_OP_TYPE_LOAD:
+            /* Dolphin */
+            if (is_sh4) {
+	            last_sh4_reg_name = strdup (op.dst->reg->name);
+	            ut64 last_sh4_reg_val = op.val;
+                
+            }
+            /***********/
 			if (anal->opt.loads) {
 				if (anal->iob.is_valid_offset (anal->iob.io, op.ptr, 0)) {
 					r_meta_add (anal, R_META_TYPE_DATA, op.ptr, op.ptr + 4, "");
@@ -1084,7 +1096,28 @@ repeat:
 						// skip inlined jumptable
 						idx += (tablesize * 2);
 					}
-				}
+				} else if (is_sh4) {
+                    /* Dolphin */
+                    if (op.type == R_ANAL_OP_TYPE_UJMP && last_reg_mov_lea_val != -1) {
+                        eprintf("[Dolphin] last_lea: %s: %x\n", last_reg_mov_lea_name, last_reg_mov_lea_val);
+                        eprintf("[Dolphin] op.ireg: %s\n", op.ireg);
+                        if (!op.ireg) {
+                            eprintf("[Dolphin] No reg at %x\n", op.addr);
+                        }
+                        ut64 pred_cmpval = try_get_cmpval_from_parents(anal, fcn, bb, op.ireg);
+                        //if (pred_cmpval == UT64_MAX) {
+                        //    eprintf("[Dolphin] Problem at %x", op.addr);
+                        //}
+                        //eprintf("[Dolphin] pred_cmpval: %x\n", pred_cmpval);
+                        int tablesize = (pred_cmpval != UT64_MAX) ? pred_cmpval : cmpval;
+                        //eprintf("[Dolphin] tablesize: %d\n", tablesize);
+                        /* Dolphin: Find out how to get the correct address */
+                        ret = try_walkthrough_sh4_jmptbl (anal, fcn, bb, depth, op.addr, last_reg_mov_lea_val, 2, tablesize, UT64_MAX, ret);
+                        //eprintf("[Dolphin] ret: %x\n", ret);
+                        idx += (tablesize);
+                    }
+                    /***********/
+                }
 			}
 			if (lea_jmptbl_ip == op.addr) {
 				lea_jmptbl_ip = UT64_MAX;

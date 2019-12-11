@@ -154,7 +154,9 @@
 #define IS_BF(x)	(((x) & 0xff00) == 0x8B00)
 #define IS_BTS(x)	(((x) & 0xff00) == 0x8D00)
 #define IS_BFS(x)	(((x) & 0xff00) == 0x8F00)
+/* Dolphin */
 #define IS_BTS_OR_BFS(x)    IS_BTS(x)||IS_BFS(x)
+/***********/
 #define IS_BT_OR_BF(x)	IS_BT(x)||IS_BTS(x)||IS_BF(x)||IS_BFS(x)
 
 #define IS_MOVB_R0_GBRREF(x)	(((x) & 0xFF00) == 0xC000)
@@ -274,6 +276,10 @@ static int first_nibble_is_0(RAnal* anal, RAnalOp* op, ut16 code) { //STOP
 	} else if (IS_BRAF (code)) {
 		op->type = R_ANAL_OP_TYPE_UJMP;
 		op->dst = anal_regrel_jump (anal, op, GET_TARGET_REG (code));
+        /* Dolphin */
+        op->ireg = regs[GET_TARGET_REG (code)];
+        //eprintf("[Dolphin] ireg: %s\n", op->ireg);
+        /***********/
 		op->eob = true;
 		op->delay = 1;
 		r_strbuf_setf (&op->esil, "1,SETD,r%d,2,+,pc,+=", GET_TARGET_REG (code));
@@ -648,7 +654,9 @@ static int first_nibble_is_4(RAnal* anal, RAnalOp* op, ut16 code) {
 		op->dst = anal_fill_ai_rg (anal, GET_TARGET_REG (code));
 		r_strbuf_setf (&op->esil, "1,SETD,pc,2,+,pr,=,r%d,pc,=", GET_TARGET_REG (code));
 	} else if (IS_JMP (code)) {
-		op->type = R_ANAL_OP_TYPE_UJMP; //jmp to reg
+        /* Dolphin */
+		op->type = R_ANAL_OP_TYPE_RJMP; //jmp to reg
+        /***********/
 		op->dst = anal_fill_ai_rg (anal, GET_TARGET_REG (code));
 		op->delay = 1;
 		op->eob = true;
@@ -877,7 +885,9 @@ static int first_nibble_is_8(RAnal* anal, RAnalOp* op, ut16 code) {
 	if (IS_BT_OR_BF (code)) {
 		op->type = R_ANAL_OP_TYPE_CJMP; //Jump if true or jump if false insns
 		op->jump = disarm_8bit_offset (op->addr, GET_BTF_OFFSET (code));
+        /* Dolphin */
 		op->fail = IS_BTS_OR_BFS(code) ? op->addr + 4 : op->addr + 2 ; // /S versions have a delay slot, therefore fail branch starts 4 bytes ahead
+        /***********/
 		op->eob = true;
 		if (IS_BT (code)) {
 			r_strbuf_setf (&op->esil, "sr,1,&,?{,0x%x,pc,=,}", op->jump);
@@ -963,6 +973,10 @@ static int first_nibble_is_c(RAnal* anal, RAnalOp* op, ut16 code) {
 		op->type = R_ANAL_OP_TYPE_LEA;
 		op->src[0] = anal_pcrel_disp_mov (anal, op, code & 0xFF, LONG_SIZE);	//this is wrong !
 		op->dst = anal_fill_ai_rg (anal, 0); //Always R0
+        /* Dolphin */
+        op->ptr = (op->addr & ~0x3) + ((code & 0xFF)<<2);
+        eprintf("[Dolphin] Jump tbl start at: 0x%x (0x%x + 0x%x)\n", op->ptr, op->addr, (code&0xff)<<2);
+        /***********/
 		r_strbuf_setf (&op->esil, "0x%x,pc,+,r0,=", (code & 0xFF) * 4);
 	} else if (IS_BINLOGIC_IMM_R0 (code)) {	// 110010__i8 (binop) #imm, R0
 		op->src[0] = anal_fill_im (anal, code & 0xFF);
