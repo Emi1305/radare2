@@ -345,7 +345,7 @@ R_API bool try_get_jmptbl_info(RAnal *anal, RAnalFunction *fcn, ut64 addr, RAnal
 /* Dolphin */
 R_API try_walkthrough_sh4_jmptbl(RAnal *anal, RAnalFunction *fcn, int depth, ut64 ip, ut64 jmptbl_loc, ut64 sz, ut64 jmptbl_size, int ret0) {
 	/*
-	 * Example jmptbl for sh4
+	 * Example jmptbl for sh4 from firmware
 	 *
      * 0x0002af20      11c7           mova @(0x44,pc), r0         ; 0x2af64
      * 0x0002af22      2c32           add r2, r2
@@ -365,6 +365,11 @@ R_API try_walkthrough_sh4_jmptbl(RAnal *anal, RAnalFunction *fcn, int depth, ut6
      * 0x0002af7c      0900           nop
      * 0x0002af7e      0900           nop
 	 */
+
+
+    /*
+     * Example jmptbl for sh4 from a dreamcast rom
+     */
 
 	ut64 offs, jmpptr;
 	int ret = ret0;
@@ -408,6 +413,9 @@ R_API try_walkthrough_sh4_jmptbl(RAnal *anal, RAnalFunction *fcn, int depth, ut6
             eprintf("[Dolphin] Error: Wrong destination address 0x%x -> 0x%x from 0x%x (0x%x)\n", jmpptr, dst_addr, ip, *buf);
             continue;
         }
+        ut64 r1;
+        r_anal_esil_reg_read(anal->esil, "r1", &r1, NULL);
+        eprintf("[Dolphin] r1 value: 0x%x at 0x%x\n", r1, ip);
         //eprintf("[Dolphin] Destination %x at % x from %x\n", dst_addr, jmpptr, ip);
 		queue_case (anal, ip, sz, dst_addr, index, jmpptr);
 		(void)r_anal_fcn_bb (anal, fcn, dst_addr, depth - 1);
