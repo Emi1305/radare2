@@ -36,7 +36,7 @@ typedef enum {
 	REG_N,
 	REG_M,
 	REG_NM,
-        REG_B,
+    REG_B,
 	BRANCH_12,
 	BRANCH_8,
 	DISP_8,
@@ -351,6 +351,7 @@ sh_opcode_info sh_table[] = {
 /* 0000000000001011 rts                 */{"rts",{0},{HEX_0,HEX_0,HEX_0,HEX_B}},
 
 /* 0000000001011000 sets                */{"sets",{0},{HEX_0,HEX_0,HEX_5,HEX_8}},
+
 /* 0000000000011000 sett                */{"sett",{0},{HEX_0,HEX_0,HEX_1,HEX_8}},
 
 /* 0100nnnnmmmm1100 shad <REG_M>,<REG_N>*/{"shad",{ A_REG_M,A_REG_N},{HEX_4,REG_N,REG_M,HEX_C}},
@@ -568,6 +569,156 @@ sh_opcode_info sh_table[] = {
 
 /* 1111nn0111111101 ftrv XMTRX_M4,<V_REG_n>*/{"ftrv",{XMTRX_M4,V_REG_N},{HEX_F,REG_NM,HEX_F,HEX_D}},
 
+/* [Dolphin] */
+/****** SHxA Operations ********/
+/* 10000110nnnn0iii bclr #imm3,Rn */    {"bclr",{A_IMM,A_REG_N},{HEX_8,HEX_6,REG_N,IMM_4}}, //Warning 3-bit immediate
+/* 10000111nnnn1iii bld #imm3,Rn */     {"bld",{A_IMM, A_REG_N},{HEX_8,HEX_7,REG_N,IMM_4}}, //Warning 3-bit immediate
+/* 10000110nnnn1iii bset #imm3,Rn */    {"bset",{A_IMM, A_REG_N},{HEX_8,HEX_6,REG_N,IMM_4}}, //Warning 3-bit immediate
+/* 10000111nnnn0iii bst #imm3,Rn */     {"bst",{A_IMM,A_REG_N},{HEX_8,HEX_7,REG_N,IMM_4}}, //Warning 3-bit immediate
+
+/* 0100nnnn10010001 clips.b Rn */       {"clips.b", {A_REG_N},{HEX_4,REG_N,HEX_9,HEX_1}},
+/* 0100nnnn10010101 clips.w Rn */       {"clips.w", {A_REG_N},{HEX_4,REG_N,HEX_9,HEX_5}},
+/* 0100nnnn10000001 clipu.b Rn */       {"clipu.b", {A_REG_N},{HEX_4,REG_N,HEX_8,HEX_1}},
+/* 0100nnnn10000101 clipu.w Rn */       {"clipu.w", {A_REG_N},{HEX_4,REG_N,HEX_8,HEX_5}},
+/* 0100nnnn10010100 divs R0,Rn */       {"divs", {A_R0,A_REG_M},{HEX_4,REG_N,HEX_9,HEX_4}}, 
+/* 0100nnnn10000100 divu R0,Rn */       {"divu", {A_R0,A_REG_M},{HEX_4,REG_N,HEX_8,HEX_4}},
+/* 1111011111111101 fpchg */            {"fpchg", {},{HEX_F,HEX_7,HEX_F,HEX_D}},
+/* 1111nnn011111101 fsca FPUL,DRn */    {"fsca", {FPUL_N,D_REG_N},{HEX_F,REG_N,HEX_F,HEX_D}}, //Warning 3-bit immediate
+/* 1111nnnn01111101 fsrra FRn */        {"fsrra", {F_REG_N},{HEX_F,REG_N,HEX_7,HEX_D}},
+/* 0000nnnn11100011 icbi @Rn */         {"icbi", {A_IND_N},{HEX_0,REG_N,HEX_E,HEX_3}},
+/* 10000011dddddddd jsr/n @@(disp8,TBR) */ 
+/* 0100mmmm01001011 jsr/n @Rm */        {"jsr/n", {A_IND_M},{HEX_4,REG_M,HEX_4,HEX_B}},
+/* 0100mmmm11100101 ldbank @Rm,R0 */    {"ldbank", {A_IND_M,A_R0},{HEX_4,REG_M,HEX_E,HEX_5}},
+/* 0100mmmm00110110 ldc.l @Rm+,SGR */   {"ldc.l",{A_INC_M, A_SGR},{HEX_4,REG_M,HEX_3,HEX_6}},
+/* 0100mmmm01001010 ldc Rm,TBR */
+/* 0100mmmm00111010 ldc Rm,SGR */       {"ldc",{A_REG_M,A_SGR},{HEX_4,REG_N,HEX_3,HEX_A}},
+/* 0100nnnn10001011 mov.b R0,@Rn+ */    {"mov.b", {A_R0,A_INC_N},{HEX_4,REG_N,HEX_8,HEX_B}},
+/* 0100mmmm11001011 mov.b @-Rm,R0 */    {"mov.b", {A_DEC_M,A_R0},{HEX_4,REG_M,HEX_C,HEX_B}},
+/* 0000nnnn01110011 movco.l R0,@Rn */   {"movco.l", {A_R0,A_IND_N},{HEX_0,REG_N,HEX_7,HEX_3}},
+/* 0100nnnn10101011 mov.l R0,@Rn+ */    {"mov.l", {A_R0,A_INC_N},{HEX_4,REG_N,HEX_A,HEX_B}},
+/* 0100mmmm11101011 mov.l @-Rm,R0 */    {"mov.l", {A_DEC_N,A_R0},{HEX_4,REG_N,HEX_E,HEX_B}},
+/* 0000mmmm01100011 movli.l @Rm,R0 */   {"movli.l", {A_DEC_M,A_R0},{HEX_0,REG_M,HEX_6,HEX_3}},
+/* 0100nnnn11110101 movml.l @R15+,Rn */ 
+/* 0100mmmm11110001 movml.l Rm,@-R15 */
+/* 0100nnnn11110100 movmu.l @R15+,Rn */
+/* 0100mmmm11110000 movmu.l Rm,@-R15 */
+/* 0000nnnn00111001 movrt Rn */ {"movrt", {A_REG_N},{HEX_0,REG_N,HEX_3,HEX_9}},
+/* 0100mmmm10101001 movua.l @Rm,R0 */ {"movua.l", {A_IND_N,A_R0},{HEX_4,REG_N,HEX_A,HEX_9}},
+/* 0100mmmm11101001 movua.l @Rm+,R0 */ {"movua.l", {A_INC_N,A_R0},{HEX_4,REG_N,HEX_E,HEX_9}},
+/* 0100nnnn10011011 mov.w R0,@Rn+ */ {"mov.w", {A_R0,A_INC_N},{HEX_4,REG_N,HEX_9,HEX_B}},
+/* 0100mmmm11011011 mov.w @-Rm,R0 */ {"mov.w", {A_DEC_N,A_R0},{HEX_4,REG_N,HEX_D,HEX_B}},
+/* 0100nnnn10000000 mulr R0,Rn */ {"mulr", {A_R0,A_REG_N},{HEX_4,REG_N,HEX_8,HEX_0}},
+/* 0000000001101000 nott */ {"nott",{},{HEX_0,HEX_0,HEX_6,HEX_8}},
+/* 0000nnnn11010011 prefi @Rn */ {"prefi", {A_IND_N},{HEX_0,REG_N,HEX_D,HEX_3}},
+/* 0000000001101011 rts/n */ {"rts/n", {},{HEX_0,HEX_0,HEX_6,HEX_B}},
+/* 0000mmmm01111011 rtv/n Rm */ {"rtv/n", {A_REG_N},{HEX_0,REG_N,HEX_7,HEX_B}},
+/* 0000000001011011 resbank  */ {"resbank", {},{HEX_0,HEX_0,HEX_5,HEX_B}},
+/* 0100nnnn11100001 stbank R0,@Rn */ {"stbank", {A_R0,A_IND_N},{HEX_4,REG_N,HEX_E,HEX_1}},
+/* 0000000010101011 synco */ {"synco", {},{HEX_0,HEX_0,HEX_A,HEX_B}},
+/*******************************/
+
+/************ DSP **************/
+/*
+ * These operations can't be implemented right now as the registers used
+ * in DSP are not present.
+ */
+/* 0100mmmm01010111 ldc.l @Rm+,MOD */ 
+/* 0100mmmm01100111 ldc.l @Rm+,RS */ 
+/* 0100mmmm01011110 ldc Rm,MOD */
+/* 0100mmmm01111110 ldc Rm,RE */
+/* 0100mmmm01101110 ldc Rm,RS */
+/* 10001110dddddddd ldre @(disp,PC) */
+/* 10001100i8p4.... ldrs @(<disp>,PC)*/ 
+/* 0100mmmm01110110 lds.l @Rm+,A0 */ 
+/* 0100mmmm01100110 lds.l @Rm+,DSR */
+/* 0100nnnn10000110 lds.l @Rm+,X0 */
+/* 0100nnnn10010110 lds.l @Rm+,X1 */
+/* 0100nnnn10100110 lds.l @Rm+,Y0 */
+/* 0100nnnn10110110 lds.l @Rm+,Y1 */
+/* 0100mmmm01110110 lds Rm,A0 */
+/* 0100mmmm01101010 lds Rm,DSR */
+/* 0100mmmm10001010 lds Rm,X0 */
+/* 0100mmmm10011010 lds Rm,X1 */
+/* 0100mmmm10101010 lds Rm,Y0 */
+/* 0100mmmm10111010 lds Rm,Y1 */
+/* 111101AADDDD0010 movs.l @-As,Ds */
+/* 111101AADDDD0110 movs.l @As,Ds */
+/* 111101AADDDD1010 movs.l @As+,Ds */
+/* 111101AADDDD1110 movs.l @As+Is,Ds */
+/* 111101AADDDD0011 movs.l Ds,@-As */
+/* 111101AADDDD0111 movs.l Ds,@As */
+/* 111101AADDDD1011 movs.l Ds,@As+ */
+/* 111101AADDDD1111 movs.l Ds,@As+Is */
+/* 111101AADDDD0000 movs.w @-As,Ds */
+/* 111101AADDDD0100 movs.w @As,Ds */
+/* 111101AADDDD1000 movs.w @As+,Ds */
+/* 111101AADDDD1100 movs.w @As+Ix,Ds */
+/* 111101AADDDD0001 movs.w Ds,@-As */
+/* 111101AADDDD0101 movs.w Ds,@As */
+/* 111101AADDDD1001 movs.w Ds,@As+ */
+/* 111101AADDDD1101 movs.w Ds,@As+Is */
+/* 111100A*D*0*01** movx.w @Ax,Dx */
+/* 111100A*D*0*10** movx.w @Ax+,Dx */
+/* 111100A*D*0*11** movx.w @Ax+Ix,Dx */
+/* 111100A*D*1*01** movx.w Da,@Ax */
+/* 111100A*D*1*10** movx.w Da,@Ax+ */
+/* 111100A*D*1*11** movx.w Da,@Ax+Ix */
+/* 111100*A*D*0**01 movy.w @Ay,Dy */
+/* 111100*A*D*0**10 movy.w @Ay+,Dy */
+/* 111100*A*D*0**11 movy.w @Ay+Iy,Dy */
+/* 111100*A*D*1**01 movy.w Da,@Ay */
+/* 111100*A*D*1**10 movy.w Da,@Ay+ */
+/* 111100*A*D*1**11 movy.w Da,@Ay+Iy */
+/* 1111000*0*0*00** nopx */
+/* 111100*0*0*0**00 nopy */
+/* 10000010iiiiiiii setrc #imm */
+/* 0100mmmm00010100 setrc Rn */
+/* 0100nnnn01010011 stc.l MOD,@-Rn */
+/* 0100nnnn01110011 stc.l RE,@-Rn */
+/* 0100nnnn01100011 stc.l RS,@-Rn */
+/* 0000nnnn01010010 stc MOD,Rn */
+/* 0000nnnn01110010 stc RE,Rn */
+/* 0000nnnn01100010 stc RS,Rn */
+/* 0000nnnn01111010 sts A0,Rn */
+/* 0000nnnn01101010 sts DSR,Rn */
+/* 0000nnnn10001010 sts X0,Rn */
+/* 0000nnnn10011010 sts X1,Rn */
+/* 0000nnnn10101010 sts Y0,Rn */
+/* 0000nnnn10111010 sts Y1,Rn */
+/* 0100nnnn01100010 sts.l A0,@-Rn */
+/* 0100nnnn01100010 sts.l DSR,@-Rn */
+/* 0100nnnn10000010 sts.l X0,@-Rn */
+/* 0100nnnn10010010 sts.l X1,@-Rn */
+/* 0100nnnn10100010 sts.l Y0,@-Rn */
+/* 0100nnnn10110010 sts.l Y1,@-Rn */
+/************ DSP **************/
+
+/* 1111nnn001011101 fabs DRn */             {"fabs", {D_REG_N},{HEX_F,REG_N,HEX_5,HEX_D}}, // Warning 3-bit immediate
+/* 1111mmmm00011101 flds FRm,FPUL */        {"flds", {F_REG_N,FPUL_N},{HEX_F,REG_N,HEX_1,HEX_D}},
+/* 1111nnn000101101 float FPUL,DRn */       {"float", {FPUL_N, D_REG_N},{HEX_F,REG_N,HEX_2,HEX_D}}, //Warning 3-bit immediate
+/* 1111nnnnmmm00111 fmov.d DRm,@(R0,Rn) */  {"fmov.d", {D_REG_M, A_IND_R0_REG_N},{HEX_F,REG_N,REG_M,HEX_7}},
+/* 1111nnnnmmm01010 fmov.d DRm,@Rn */       {"fmov.d", {D_REG_M, A_IND_N},{HEX_F,REG_N,REG_M,HEX_A}},
+/* 1111nnnnmmm01011 fmov.d DRm,@-Rn */      {"fmov.d", {D_REG_M, A_DEC_N},{HEX_F,REG_N,REG_M,HEX_B}},
+/* 1111nnn0mmmm0110 fmov.d @(R0,Rm),DRn */  {"fmov.d", {A_IND_R0_REG_M, D_REG_N},{HEX_F,REG_N,REG_M,HEX_6}}, //Warning 3-bit immediate
+/* 1111nnn1mmmm0110 fmov.d @(R0,Rm),XDn */  //{"fmov.d", {A_IND_R0_REG_M, D_REG_N},{HEX_F,REG_N,REG_M,HEX_6}}, //Warning 3-bit immediate
+/* 1111nnn0mmm01100 fmov DRm,DRn */         {"fmov", {D_REG_M, D_REG_N},{HEX_F,REG_N,REG_M,HEX_C}}, //Warning 3-bit immediate
+/* 1111nnn0mmmm1000 fmov.d @Rm,DRn */       {"fmov.d", {A_IND_M, D_REG_N},{HEX_F,REG_N,REG_M,HEX_8}}, //Warning 3-bit immediate
+/* 1111nnn0mmmm1001 fmov.d @Rm+,DRn */      {"fmov.d", {A_INC_M, D_REG_N},{HEX_F,REG_N,REG_M,HEX_9}}, //Warning 3-bit immediate
+/* 1111nnn1mmm01100 fmov DRm,XDn */         //{"fmov", {D_REG_M, DX_REG_N},{HEX_F,REG_N,REG_M,HEX_C}}, //Warning 3-bit immediate
+/* 1111nnn1mmmm1000 fmov.d @Rm,XDn */       //{"fmov.d". {A_IND_M, DX_REG_N},{HEX_F,REG_N,REG_M,HEX_8}}, //Warning 3-bit immediate
+/* 1111nnn1mmmm1001 fmov.d @Rm+,XDn */      //{"fmov.d". {A_INC_M, DX_REG_N},{HEX_F,REG_N,REG_M,HEX_9}}, //Warning 3-bit immediate
+/* 1111nnnnmmm10111 fmov.d XDm,@(R0,Rn) */  //{"fmov.d", {D_REG_M, A_IND_R0_REG_N},{HEX_F,REG_N,REG_M,HEX_7}}, //Warning 3-bit immediate
+/* 1111nnnnmmm11010 fmov.d XDm,@Rn */       //{"fmov.d", {D_REG_M, A_IND_N},{HEX_F,REG_N,REG_M,HEX_A}}, //Warning 3-bit immediate
+/* 1111nnnnmmm11011 fmov.d XDm,@-Rn */      //{"fmov.d", {D_REG_M, A_DEC_N},{HEX_F,REG_N,REG_M,HEX_B}}, //Warning 3-bit immediate
+/* 1111nnnnmmmm1010 fmov.s FRm,@Rn */       {"fmov.s", {F_REG_M, A_IND_N},{HEX_F,REG_N,REG_M,HEX_A}},
+/* 1111nnn0mmm11100 fmov XDm,DRn */         {"fmov", {DX_REG_M, D_REG_N},{HEX_F,REG_N,REG_M,HEX_C}}, //Warning 3-bit immediate
+/* 1111nnn1mmm11100 fmov XDm,XDn */         //{"fmov", {DX_REG_M, D_REG_N},{HEX_F,REG_N,REG_M,HEX_C}}, //Warning 3-bit immediate
+/* 1111nnn001001101 fneg DRn */             {"fneg", {D_REG_N},{HEX_F,REG_N,HEX_4,HEX_D}}, //Warning 3-bit immediate
+/* 1111nnn001101101 fsqrt DRn */            {"fsqrt", {D_REG_N},{HEX_F,REG_N,HEX_6,HEX_D}}, //Warning 3-bit immediate
+/* 1111mmm000111101 ftrc DRm,FPUL */        {"ftrc", {D_REG_M, FPUL_N},{HEX_F,REG_M,HEX_3,HEX_D}}, //Warning 3-bit immediate
+/* 0000000000111000 ldtbl */                {"ldtbl", {},{HEX_0,HEX_0,HEX_3,HEX_8}},
+/* 0100nnnn01100010 sts.l FPSCR,@-Rn */     {"sts.l", {FPSCR_M,A_DEC_N},{HEX_4,REG_N,HEX_6,HEX_2}},
+/*************/
 { 0 } 
 };
 
