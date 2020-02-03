@@ -1,0 +1,245 @@
+let SessionLoad = 1
+let s:so_save = &so | let s:siso_save = &siso | set so=0 siso=0
+let v:this_session=expand("<sfile>:p")
+silent only
+cd /opt/radare2
+if expand('%') == '' && !&modified && line('$') <= 1 && getline(1) == ''
+  let s:wipebuf = bufnr('%')
+endif
+set shortmess=aoO
+badd +1 libr/anal/p/anal_sh.c
+badd +2 libr/main/radare2.c
+badd +5 binr/radare2/radare2.c
+badd +9156 libr/core/cmd_anal.c
+badd +3721 libr/core/canal.c
+badd +128 libr/anal/op.c
+badd +1 libr/anal/anal.c
+badd +1241 libr/anal/p/anal_x86_cs.c
+badd +257 libr/anal/p/anal_arm_gnu.c
+badd +93 libr/anal/p/anal_mips_gnu.c
+badd +85 libr/anal/p/anal_ppc_gnu.c
+badd +1 libr/anal/p/anal_ppc_gnu.d
+badd +2383 libr/anal/p/anal_arm_cs.c
+badd +296 libr/reg/reg.c
+badd +121 libr/include/r_reg.h
+badd +1 libr/include/r_anal.h
+badd +22 libr/include/r_util/r_rbtree.h
+badd +26 libr/include/r_lib.h
+badd +16 libr/include/r_list.h
+badd +196 libr/anal/p/anal_snes.c
+badd +247 libr/anal/p/anal_mips_cs.c
+badd +1 libr/anal/p/anal_null.c
+badd +1 libr/anal/p/anal_nios2.c
+badd +82 libr/anal/p/anal_msp430.c
+badd +1 libr/anal/p/anal_mcore.c
+badd +1 libr/anal/p/anal_malbolge.c
+badd +734 libr/anal/p/anal_java.c
+badd +184 libr/anal/p/anal_i8080.c
+badd +12 libr/anal/p/anal_hexagon.c
+badd +48 libr/anal/p/anal_8051.c
+badd +1632 libr/bin/format/elf/elf.c
+badd +1 shlr/sdb/src/set.h
+badd +1 shlr/sdb/src/ht_up.c
+badd +1 shlr/sdb/src/ht_up.h
+badd +1 shlr/sdb/src/ht_inc.h
+badd +1 libr/anal/fcn.c
+badd +1 libr/anal/jmptbl.c
+badd +3 Vagrantfile.sh
+argglobal
+%argdel
+set stal=2
+edit libr/anal/p/anal_sh.c
+set splitbelow splitright
+wincmd _ | wincmd |
+vsplit
+1wincmd h
+wincmd w
+set nosplitbelow
+set nosplitright
+wincmd t
+set winminheight=0
+set winheight=1
+set winminwidth=0
+set winwidth=1
+exe 'vert 1resize ' . ((&columns * 31 + 86) / 173)
+exe 'vert 2resize ' . ((&columns * 141 + 86) / 173)
+argglobal
+enew
+setlocal fdm=manual
+setlocal fde=0
+setlocal fmr={{{,}}}
+setlocal fdi=#
+setlocal fdl=0
+setlocal fml=1
+setlocal fdn=20
+setlocal nofen
+wincmd w
+argglobal
+setlocal fdm=manual
+setlocal fde=0
+setlocal fmr={{{,}}}
+setlocal fdi=#
+setlocal fdl=0
+setlocal fml=1
+setlocal fdn=20
+setlocal fen
+silent! normal! zE
+let s:l = 1044 - ((27 * winheight(0) + 24) / 48)
+if s:l < 1 | let s:l = 1 | endif
+exe s:l
+normal! zt
+1044
+normal! 020|
+wincmd w
+exe 'vert 1resize ' . ((&columns * 31 + 86) / 173)
+exe 'vert 2resize ' . ((&columns * 141 + 86) / 173)
+tabedit libr/anal/fcn.c
+set splitbelow splitright
+wincmd _ | wincmd |
+vsplit
+1wincmd h
+wincmd w
+set nosplitbelow
+set nosplitright
+wincmd t
+set winminheight=0
+set winheight=1
+set winminwidth=0
+set winwidth=1
+exe 'vert 1resize ' . ((&columns * 31 + 86) / 173)
+exe 'vert 2resize ' . ((&columns * 141 + 86) / 173)
+argglobal
+enew
+setlocal fdm=manual
+setlocal fde=0
+setlocal fmr={{{,}}}
+setlocal fdi=#
+setlocal fdl=0
+setlocal fml=1
+setlocal fdn=20
+setlocal nofen
+wincmd w
+argglobal
+setlocal fdm=manual
+setlocal fde=0
+setlocal fmr={{{,}}}
+setlocal fdi=#
+setlocal fdl=0
+setlocal fml=1
+setlocal fdn=20
+setlocal fen
+silent! normal! zE
+let s:l = 1067 - ((23 * winheight(0) + 24) / 48)
+if s:l < 1 | let s:l = 1 | endif
+exe s:l
+normal! zt
+1067
+normal! 014|
+wincmd w
+exe 'vert 1resize ' . ((&columns * 31 + 86) / 173)
+exe 'vert 2resize ' . ((&columns * 141 + 86) / 173)
+tabedit libr/anal/jmptbl.c
+set splitbelow splitright
+wincmd _ | wincmd |
+vsplit
+1wincmd h
+wincmd w
+set nosplitbelow
+set nosplitright
+wincmd t
+set winminheight=0
+set winheight=1
+set winminwidth=0
+set winwidth=1
+exe 'vert 1resize ' . ((&columns * 31 + 86) / 173)
+exe 'vert 2resize ' . ((&columns * 141 + 86) / 173)
+argglobal
+enew
+setlocal fdm=manual
+setlocal fde=0
+setlocal fmr={{{,}}}
+setlocal fdi=#
+setlocal fdl=0
+setlocal fml=1
+setlocal fdn=20
+setlocal nofen
+wincmd w
+argglobal
+setlocal fdm=manual
+setlocal fde=0
+setlocal fmr={{{,}}}
+setlocal fdi=#
+setlocal fdl=0
+setlocal fml=1
+setlocal fdn=20
+setlocal fen
+silent! normal! zE
+let s:l = 391 - ((25 * winheight(0) + 24) / 48)
+if s:l < 1 | let s:l = 1 | endif
+exe s:l
+normal! zt
+391
+normal! 0109|
+wincmd w
+exe 'vert 1resize ' . ((&columns * 31 + 86) / 173)
+exe 'vert 2resize ' . ((&columns * 141 + 86) / 173)
+tabedit libr/include/r_anal.h
+set splitbelow splitright
+wincmd _ | wincmd |
+vsplit
+1wincmd h
+wincmd w
+set nosplitbelow
+set nosplitright
+wincmd t
+set winminheight=0
+set winheight=1
+set winminwidth=0
+set winwidth=1
+exe 'vert 1resize ' . ((&columns * 31 + 86) / 173)
+exe 'vert 2resize ' . ((&columns * 141 + 86) / 173)
+argglobal
+enew
+setlocal fdm=manual
+setlocal fde=0
+setlocal fmr={{{,}}}
+setlocal fdi=#
+setlocal fdl=0
+setlocal fml=1
+setlocal fdn=20
+setlocal nofen
+wincmd w
+argglobal
+setlocal fdm=manual
+setlocal fde=0
+setlocal fmr={{{,}}}
+setlocal fdi=#
+setlocal fdl=0
+setlocal fml=1
+setlocal fdn=20
+setlocal fen
+silent! normal! zE
+let s:l = 649 - ((28 * winheight(0) + 24) / 48)
+if s:l < 1 | let s:l = 1 | endif
+exe s:l
+normal! zt
+649
+normal! 017|
+wincmd w
+exe 'vert 1resize ' . ((&columns * 31 + 86) / 173)
+exe 'vert 2resize ' . ((&columns * 141 + 86) / 173)
+tabnext 1
+set stal=1
+if exists('s:wipebuf') && getbufvar(s:wipebuf, '&buftype') isnot# 'terminal'
+  silent exe 'bwipe ' . s:wipebuf
+endif
+unlet! s:wipebuf
+set winheight=1 winwidth=20 winminheight=1 winminwidth=1 shortmess=filnxtToOF
+let s:sx = expand("<sfile>:p:r")."x.vim"
+if file_readable(s:sx)
+  exe "source " . fnameescape(s:sx)
+endif
+let &so = s:so_save | let &siso = s:siso_save
+doautoall SessionLoadPost
+unlet SessionLoad
+" vim: set ft=vim :
