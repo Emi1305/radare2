@@ -6,6 +6,7 @@
 #include <r_list.h>
 
 #define JMPTBL_MAXSZ 512
+#define JMPTBL_MAXSZ_SH4 256
 
 static void apply_case(RAnal *anal, RAnalBlock *block, ut64 switch_addr, ut64 offset_sz, ut64 case_addr, ut64 id, ut64 case_addr_loc) {
 	// eprintf ("** apply_case: 0x%"PFMT64x " from 0x%"PFMT64x "\n", case_addr, case_addr_loc);
@@ -368,7 +369,7 @@ R_API try_walkthrough_sh4_jmptbl(RAnal *anal, RAnalFunction *fcn, RAnalBlock blo
 
     eprintf("[Dolphin] Starting jmptbl analysis at 0x%x\n", ip);
 	if (jmptbl_size == 0) {
-		jmptbl_size = JMPTBL_MAXSZ;
+		jmptbl_size = JMPTBL_MAXSZ_SH4;
 	}
     ut16 *buf = malloc(sizeof(ut16));
 
