@@ -89,6 +89,7 @@ static const char *help_msg_aar[] = {
 static const char *help_msg_ab[] = {
 	"Usage:", "ab", "",
 	"ab", " [addr]", "show basic block information at given address",
+	"aba", " [addr]", "analyze esil accesses in basic block (see aea?)",
 	"abb", " [length]", "analyze N bytes and extract basic blocks",
 	"abj", " [addr]", "display basic block information in JSON (alias to afbj)",
 	"abx", " [hexpair-bytes]", "analyze N bytes",
@@ -244,6 +245,7 @@ static const char *help_msg_aea[] = {
 	"Examples:", "aea", " show regs and memory accesses used in a range",
 	"aea", "  [ops]", "Show regs/memory accesses used in N instructions ",
 	"aea*", " [ops]", "Create mem.* flags for memory accesses",
+	"aeab", "", "Show regs used in current basic block",
 	"aeaf", "", "Show regs used in current function",
 	"aear", " [ops]", "Show regs read in N instructions",
 	"aeaw", " [ops]", "Show regs written in N instructions",
@@ -255,7 +257,8 @@ static const char *help_msg_aea[] = {
 	"A", "", "all regs accessed",
 	"R", "", "register values read",
 	"W", "", "registers written",
-	"N", "", "not written",
+	"N", "", "read but never written",
+	"V", "", "values",
 	"@R", "", "memreads",
 	"@W", "", "memwrites",
 	"NOTE:", "", "mem{reads,writes} with PIC only fetch the offset",
@@ -1068,6 +1071,9 @@ static int cmd_an(RCore *core, bool use_json, const char *name)
 					pj_ks (pj, "new_name", name);
 				} else {
 					pj_ks (pj, "name", f->name);
+				}
+				if (f->realname) {
+					pj_ks (pj, "realname", f->realname);
 				}
 				pj_ks (pj, "type", "flag");
 				pj_kn (pj, "offset", tgt_addr);
@@ -4993,6 +4999,7 @@ typedef struct {
 	RList *regs;
 	RList *regread;
 	RList *regwrite;
+	RList *regvalues;
 	RList *inputregs;
 } AeaStats;
 
@@ -5000,6 +5007,7 @@ static void aea_stats_init (AeaStats *stats) {
 	stats->regs = r_list_newf (free);
 	stats->regread = r_list_newf (free);
 	stats->regwrite = r_list_newf (free);
+	stats->regvalues = r_list_newf (free);
 	stats->inputregs = r_list_newf (free);
 }
 
@@ -5083,6 +5091,11 @@ static int myregwrite(RAnalEsil *esil, const char *name, ut64 *val) {
 		if (!contains (stats->regwrite, name)) {
 			r_list_push (stats->regwrite, strdup (name));
 		}
+		char *v = r_str_newf ("%"PFMT64d, *val);
+		if (!contains (stats->regvalues, v)) {
+			r_list_push (stats->regvalues, strdup (v));
+		}
+		free (v);
 	}
 	return 0;
 }
@@ -5220,25 +5233,23 @@ static bool cmd_aea(RCore* core, int mode, ut64 addr, int length) {
 	for (ops = ptr = 0; ptr < buf_sz && hasNext (mode); ops++, ptr += len) {
 		len = r_anal_op (core->anal, &aop, addr + ptr, buf + ptr, buf_sz - ptr, R_ANAL_OP_MASK_ESIL | R_ANAL_OP_MASK_HINT);
 		esilstr = R_STRBUF_SAFEGET (&aop.esil);
-		if (!*esilstr) {
-			eprintf ("Empty ESIL at 0x%08"PFMT64x"\n", addr + ptr);
-			break;
-		}
-		if (len < 1) {
-			eprintf ("Invalid 0x%08"PFMT64x" instruction %02x %02x\n",
-				addr + ptr, buf[ptr], buf[ptr + 1]);
-			break;
-		}
-		if (r_config_get_i (core->config, "cfg.r2wars")) {
-			if (aop.prefix  & R_ANAL_OP_PREFIX_REP) {
-				char * tmp = strstr (esilstr, ",ecx,?{,5,GOTO,}");
-				if (tmp) {
-					tmp[0] = 0;
+		if (*esilstr) {
+			if (len < 1) {
+				eprintf ("Invalid 0x%08"PFMT64x" instruction %02x %02x\n",
+					addr + ptr, buf[ptr], buf[ptr + 1]);
+				break;
+			}
+			if (r_config_get_i (core->config, "cfg.r2wars")) {
+				if (aop.prefix  & R_ANAL_OP_PREFIX_REP) {
+					char * tmp = strstr (esilstr, ",ecx,?{,5,GOTO,}");
+					if (tmp) {
+						tmp[0] = 0;
+					}
 				}
 			}
+			r_anal_esil_parse (esil, esilstr);
+			r_anal_esil_stack_free (esil);
 		}
-		r_anal_esil_parse (esil, esilstr);
-		r_anal_esil_stack_free (esil);
 		r_anal_op_fini (&aop);
 	}
 	esil->nowrite = false;
@@ -5292,6 +5303,10 @@ static bool cmd_aea(RCore* core, int mode, ut64 addr, int length) {
 		showregs_json (stats.regread, pj);
 		pj_k (pj, "W");
 		showregs_json (stats.regwrite, pj);
+		if (!r_list_empty (stats.regvalues)) {
+			pj_k (pj, "V");
+			showregs_json (stats.regvalues, pj);
+		}
 		if (!r_list_empty (regnow)){
 			pj_k (pj, "N");
 			showregs_json (regnow, pj);
@@ -5311,15 +5326,27 @@ static bool cmd_aea(RCore* core, int mode, ut64 addr, int length) {
 	} else if ((mode >> 5) & 1) {
 		// nothing
 	} else {
-		r_cons_printf (" I: ");
-		showregs (stats.inputregs);
-		r_cons_printf (" A: ");
-		showregs (stats.regs);
-		r_cons_printf (" R: ");
-		showregs (stats.regread);
-		r_cons_printf (" W: ");
-		showregs (stats.regwrite);
-		if (r_list_length (regnow)){
+		if (!r_list_empty (stats.inputregs)) {
+			r_cons_printf (" I: ");
+			showregs (stats.inputregs);
+		}
+		if (!r_list_empty (stats.regs)) {
+			r_cons_printf (" A: ");
+			showregs (stats.regs);
+		}
+		if (!r_list_empty (stats.regread)) {
+			r_cons_printf (" R: ");
+			showregs (stats.regread);
+		}
+		if (!r_list_empty (stats.regwrite)) {
+			r_cons_printf (" W: ");
+			showregs (stats.regwrite);
+		}
+		if (!r_list_empty (stats.regvalues)) {
+			r_cons_printf (" V: ");
+			showregs (stats.regvalues);
+		}
+		if (!r_list_empty (regnow)){
 			r_cons_printf (" N: ");
 			showregs (regnow);
 		}
@@ -5986,6 +6013,18 @@ static void cmd_anal_esil(RCore *core, const char *input) {
 			cmd_aea (core, 1<<4, core->offset, r_num_math (core->num, input+2));
 		} else if (input[1] == '*') {
 			cmd_aea (core, 1<<5, core->offset, r_num_math (core->num, input+2));
+		} else if (input[1] == 'b') { // "aeab"
+			bool json = input[2] == 'j';
+			int a = json? 3: 2;
+			ut64 addr = (input[a] == ' ')? r_num_math (core->num, input + a): core->offset;
+			RList *l = r_anal_get_blocks_in (core->anal, addr);
+			RAnalBlock *b;
+			RListIter *iter;
+			r_list_foreach (l, iter, b) {
+				int mode = json? (1<<4): 1;
+				cmd_aea (core, mode, b->addr, b->size);
+				break;
+			}
 		} else if (input[1] == 'f') {
 			RAnalFunction *fcn = r_anal_get_fcn_in (core->anal, core->offset, -1);
                         // "aeafj"
@@ -8063,7 +8102,8 @@ static void cmd_anal_graph(RCore *core, const char *input) {
 		case ' ':
 		case 0: {
 			core->graph->is_callgraph = true;
-			r_core_cmdf (core, "ag-; .agC*; agg%s;", input + 1);
+			r_core_cmdf (core, "ag-; .agC*;");
+			r_core_agraph_print(core, -1, input + 1);
 			core->graph->is_callgraph = false;
 			break;
 			}
@@ -8087,49 +8127,21 @@ static void cmd_anal_graph(RCore *core, const char *input) {
 		break;
 	case 'r': // "agr" references graph
 		switch (input[1]) {
-		case 'v':
-		case 't':
-		case 'd':
-		case 'J':
-		case 'j':
-		case 'g':
-		case 'k':
-		case 'w':
-		case ' ': {
-			core->graph->is_callgraph = true;
-			r_core_cmdf (core, "ag-; .agr* @ %"PFMT64u"; agg%s;", core->offset, input + 1);
-			core->graph->is_callgraph = false;
-			break;
-			}
 		case '*': {
 			r_core_anal_coderefs (core, core->offset);
 			}
 			break;
-		case 0:
-			r_core_cmd0 (core, "ag-; .agr* $$; agg;");
+		default: {
+			core->graph->is_callgraph = true;
+			r_core_cmdf (core, "ag-; .agr* @ %"PFMT64u";", core->offset);
+			r_core_agraph_print(core, -1, input + 1);
+			core->graph->is_callgraph = false;
 			break;
-		default:
-			eprintf ("Usage: see ag?\n");
-			break;
+			}
 		}
 		break;
 	case 'R': // "agR" global refs
 		switch (input[1]) {
-		case 'v':
-		case 't':
-		case 'd':
-		case 'J':
-		case 'j':
-		case 'g':
-		case 'k':
-		case 'w':
-		case ' ':
-		case 0: {
-			core->graph->is_callgraph = true;
-			r_core_cmdf (core, "ag-; .agR*; agg%s;", input + 1);
-			core->graph->is_callgraph = false;
-			break;
-			}
 		case '*': {
 			ut64 from = r_config_get_i (core->config, "graph.from");
 			ut64 to = r_config_get_i (core->config, "graph.to");
@@ -8142,56 +8154,36 @@ static void cmd_anal_graph(RCore *core, const char *input) {
 			}
 			break;
 			}
-		default:
-			eprintf ("Usage: see ag?\n");
+		default: {
+			core->graph->is_callgraph = true;
+			r_core_cmdf (core, "ag-; .agR*;");
+			r_core_agraph_print(core, -1, input + 1);
+			core->graph->is_callgraph = false;
 			break;
+			}
 		}
 		break;
 	case 'x': // "agx" cross refs
 		switch (input[1]) {
-		case 'v':
-		case 't':
-		case 'd':
-		case 'J':
-		case 'j':
-		case 'g':
-		case 'k':
-		case 'w':
-		case ' ': {
-			r_core_cmdf (core, "ag-; .agx* @ %"PFMT64u"; agg%s;", core->offset, input + 1);
-			break;
-			}
 		case '*': {
 			r_core_anal_codexrefs (core, core->offset);
 			}
 			break;
-		case 0:
-			r_core_cmd0 (core, "ag-; .agx* $$; agg;");
+		default: {
+			r_core_cmdf (core, "ag-; .agx* @ %"PFMT64u";", core->offset);
+			r_core_agraph_print(core, -1, input + 1);
 			break;
-		default:
-			eprintf ("Usage: see ag?\n");
-			break;
+			}
 		}
 		break;
 	case 'i': // "agi" import graph
 		switch (input[1]) {
-		case 'v':
-		case 't':
-		case 'd':
-		case 'J':
-		case 'j':
-		case 'g':
-		case 'k':
-		case 'w':
-		case ' ':
-		case 0:
-			r_core_cmdf (core, "ag-; .agi*; agg%s;", input + 1);
-			break;
 		case '*':
 			r_core_anal_importxrefs (core);
 			break;
 		default:
-			eprintf ("Usage: see ag?\n");
+			r_core_cmdf (core, "ag-; .agi*;");
+			r_core_agraph_print(core, -1, input + 1);
 			break;
 		}
 		break;
@@ -8248,45 +8240,18 @@ static void cmd_anal_graph(RCore *core, const char *input) {
 		break;
 	case 'a': // "aga"
 		switch (input[1]) {
-		case 'v':
-		case 't':
-		case 'k':
-		case 'w':
-		case 'g':
-		case 'j':
-		case 'J':
-		case 'd':
-		case ' ': {
-			r_core_cmdf (core, "ag-; .aga* @ %"PFMT64u"; agg%s;", core->offset, input + 1);
-			break;
-			}
-		case 0:
-			r_core_cmd0 (core, "ag-; .aga* $$; agg;");
-			break;
 		case '*': {
 			r_core_anal_datarefs (core, core->offset);
 			break;
 			}
 		default:
-			 eprintf ("Usage: see ag?\n");
-			 break;
+			r_core_cmdf (core, "ag-; .aga* @ %"PFMT64u";", core->offset);
+			r_core_agraph_print(core, -1, input + 1);
+			break;
 		}
 		break;
 	case 'A': // "agA" global data refs
 		switch (input[1]) {
-		case 'v':
-		case 't':
-		case 'd':
-		case 'J':
-		case 'j':
-		case 'g':
-		case 'k':
-		case 'w':
-		case ' ':
-		case 0: {
-			r_core_cmdf (core, "ag-; .agA*; agg%c;", input[1]);
-			break;
-			}
 		case '*': {
 			ut64 from = r_config_get_i (core->config, "graph.from");
 			ut64 to = r_config_get_i (core->config, "graph.to");
@@ -8300,7 +8265,8 @@ static void cmd_anal_graph(RCore *core, const char *input) {
 			break;
 			}
 		default:
-			eprintf ("Usage: see ag?\n");
+			r_core_cmdf (core, "ag-; .agA*;");
+			r_core_agraph_print(core, -1, input + 1);
 			break;
 		}
 		break;
@@ -9815,7 +9781,9 @@ static int cmd_anal(void *data, const char *input) {
 		}
 		break;
 	case 'b': // "ab"
-		if (input[1] == 'b') { // "abb"
+		if (input[1] == 'a') { // "aba"
+			r_core_cmdf (core, "aeab%s", input + 1);
+		} else if (input[1] == 'b') { // "abb"
 			core_anal_bbs (core, input + 2);
 		} else if (input[1] == 'r') { // "abr"
 			core_anal_bbs_range (core, input + 2);
