@@ -171,6 +171,65 @@
 #define IS_BINLOGIC_IMM_GBR(x)	(((x) & 0xFC00) == 0xCC00)	//match C{C,D,E,F}00 : *.b #imm, @(R0,gbr)
 
 
+/* Dolphin */
+/* SHxA Operations */
+#define IS_BCLR(x)     (((x) & 0xFF08) == 0x8600)
+#define IS_BLD(x)       (((x) & 0xFF08) == 0x8708)
+#define IS_BSET(x)      (((x) & 0xFF08) == 0x8608)
+#define IS_BST(x)       (((x) & 0xFF08) == 0x8700)
+#define IS_CLIPSB(x)    (((x) & 0xF0FF) == 0x4091) 
+#define IS_CLIPSW(x)    (((x) & 0xF0FF) == 0x4095)
+#define IS_CLIPUB(x)    (((x) & 0xF0FF) == 0x4081)
+#define IS_CLIPUW(x)    (((x) & 0xF0FF) == 0x4085)
+#define IS_DIVS(x)  (((x) & 0xF0FF) == 0x4094)
+#define IS_DIVU(x)  (((x) & 0xF0FF) == 0x4084)
+#define IS_FPCHG(x) (((x) & 0xFFFF) == 0xF7FD)
+#define IS_FSCA(x)  (((x) & 0xF8FF) == 0xF8FD)
+#define IS_FSRRA(x) (((x) & 0xF0FF) == 0xF07D)
+#define IS_ICBI(x)  (((x) & 0xF0FF) == 0x00E3)
+#define IS_JSRN(x)  (((x) & 0xF0FF) == 0x404B)
+#define IS_LDBANK(x)    (((x) & 0xF0FF) == 0x40E5)
+#define IS_LDCL(x)  (((x) & 0xF0FF) == 0x4036)
+#define IS_LDC_SGR(x)   (((x) & 0xF0FF) == 0x403A)
+#define IS_MOVB_R0_REGREFINC(x)    (((x) & 0xF0FF) == 0x408B)
+#define IS_MOVB_REGREFDEC_R0(x)  (((x) & 0xF0FF) == 0x40CB)
+#define IS_MOVCOL(x)    (((x) & 0XF0FF) == 0x0073)
+#define IS_MOVL_R0_REGREFINC(x)   (((x) & 0xF0FF) == 0x40AB)
+#define IS_MOVL_REGREFDEC_R0(x) (((x) & 0xF0FF) == 0X40EB)
+#define IS_MOVLIL_REGREL_R0(x)  (((x) & 0xF0FF) == 0x0063)
+#define IS_MOVRT(x) (((x) & 0xF0FF) == 0x0039)
+#define IS_MOVUAL_REGREL_R0(x)    (((x) & 0xF0FF) == 0x40A9)
+#define IS_MOVUAL_R0_REGREFINC(x) (((x) & 0xF0FF) == 0x40E9)
+#define IS_MOVW_R0_REGREFINC(x)   (((x) & 0xF0FF) == 0x409B)
+#define IS_MOVW_REGREFDEC_R0(x)  (((x) & 0xF0FF) == 0x40DB)
+#define IS_MULR(x)  (((x) & 0xF0FF) == 0x4080)
+#define IS_NOTT(x)  (((x) & 0xFFFF) == 0x0068)
+#define IS_PREFI(x) (((x) & 0xF0FF) == 0x00D3)
+#define IS_RTSN(x)  (((x) & 0xFFFF) == 0x006B)
+#define IS_RTVN(x)  (((x) & 0xF0FF) == 0x007B)
+#define IS_RESBANK(x)   (((x) & 0xFFFF) == 0x005B)
+#define IS_STBANK(x)    (((x) & 0xF0FF) == 0x40E1)
+#define IS_SYNCO(x) (((x) & 0xFFFF) == 0x00AB)
+
+/* Regular operations */
+#define IS_FABS(x)  (((x) & 0xF8FF) == 0xF85D)
+#define IS_FLDS(x)  (((x) & 0xF0FF) == 0xF01D)
+#define IS_FLOAT(x) (((x) & 0xF0FF) == 0xF02D)
+#define IS_FMOVD_REG_TO_R0REL(x)    (((x) & 0xF00F) == 0xF007)
+#define IS_FMOVD_REG_TO_REGREF(x)   (((x) & 0XF00F) == 0XF00A)
+#define IS_FMOVD_REG_TO_REGREFDEC(x)  (((x) & 0xF00F) == 0xF00B)
+#define IS_FMOVD_R0REL_TO_REG(x)    (((x) & 0xF10F) == 0xF006)
+#define IS_FMOVD_REG_TO_REG(x)  (((x) & 0xF11F) == 0xF00C)
+#define IS_FMOVD_REGREF_TO_REG(x)   (((x) & 0xF10F) == 0xF008)
+#define IS_FMOVD_REGREFINC_TO_REG(x)   (((x) & 0xF10F) == 0xF009)
+#define IS_FMOVS_REG_TO_REGREF(x)   (((x) & 0xF00F) == 0xF00A)
+#define IS_FMOV_REG_TO_REG(x)   (((x) & 0xF11F) == 0xF01C) //Warning
+#define IS_FNEG(x)  (((x) & 0xF1FF) == 0xF04D)
+#define IS_FSQRT(x) (((x) & 0xF1FF) == 0xF06D)
+#define IS_FTRC(x)  (((x) & 0xF1FF) == 0xF03D)
+#define IS_LDTBL(x) (((x) & 0xFFFF) == 0x0038)
+/***********/
+
 /* Compute PC-relative displacement for branch instructions */
 #define GET_BRA_OFFSET(x)	((x) & 0x0fff)
 #define GET_BTF_OFFSET(x)	((x) & 0x00ff)
@@ -415,6 +474,55 @@ static int first_nibble_is_0(RAnal* anal, RAnalOp* op, ut16 code) { //STOP
 			GET_TARGET_REG (code), GET_SOURCE_REG (code));
 		op->type = R_ANAL_OP_TYPE_MUL;
 	}
+    /* Dolphin */
+    else if (IS_MOVLIL_REGREL_R0 (code)) {
+        /* void MOVLINK (int m)
+         * {
+         *   LDST = 1;
+         *   R[0] = Read_32 (R[m]);
+         *   PC += 2
+         * }
+         */
+        r_strbuf_setf (&op->esil,
+                "r%d,r0,=[4]",
+                GET_TARGET_REG (code)
+        );
+    } else if (IS_MOVRT (code)) {
+        /* void MOVRT (int n)
+         * {
+         *   if (T == 1)
+         *     R[n] = 0x00000000;
+         *   else
+         *     R[n] = 0x00000001;
+         * 
+         *   PC += 2;
+         * }
+         */
+        r_strbuf_setf (&op->esil,
+                "0xfffffffe,sr,0x1,&,|,0xffffffff,^,r%d,=",
+                GET_TARGET_REG (code)
+        );
+    } else if (IS_ICBI(code)) {
+        // Nothing to do here, this instruction just clears instruction cache
+    } else if (IS_SYNCO(code)) {
+        // Nothing to do here, this instruction prevents processor from continuing until all operations are finished
+    } else if (IS_NOTT(code)) {
+        r_strbuf_setf (&op->esil,
+                "0x1,sr,^=");
+    } else if (IS_PREFI(code)) {
+        // Nothing to do here, this instruction reads 32 bytes of instructions into the cache
+    } else if (IS_RTSN(code)) {
+        r_strbuf_setf (&op->esil,
+                "pr,pc,=");
+    } else if (IS_RTVN(code)) {
+        r_strbuf_setf (&op->esil,
+                "r%d,r0,=,pr,pc,=",
+                GET_TARGET_REG (code));
+    } else if (IS_RESBANK(code)) {
+        // Register banks are not implemented, nothing to do here until then
+    } else if (IS_LDTBL(code)) {
+        // Nothing to do here, this instruction is used to load the TLB when MMU is disabled. None of this is implemented, so no sense doing it
+    }
 	return op->size;
 }
 
@@ -740,7 +848,7 @@ static int first_nibble_is_4(RAnal* anal, RAnalOp* op, ut16 code) {
 	} else if (IS_DT (code)) {
 		r_strbuf_setf (&op->esil, "0xFFFFFFFE,sr,&=,1,r%d,-=,$z,sr,|,sr,:=", GET_TARGET_REG (code), GET_TARGET_REG (code));
 		op->type = R_ANAL_OP_TYPE_UNK;
-	} else if (IS_MACW(code)){
+	} else if (IS_MACW (code)){
 		r_strbuf_setf (&op->esil,
 			"0x2,sr,&,!,?{," //if S==0
 				S16_EXT("r%d,[2]")"," //@Rn sign extended
@@ -775,6 +883,209 @@ static int first_nibble_is_4(RAnal* anal, RAnalOp* op, ut16 code) {
 			GET_TARGET_REG (code), GET_SOURCE_REG (code));
 		op->type = R_ANAL_OP_TYPE_MUL;
 	}
+    /* Dolphin */
+    else if (IS_CLIPSB (code)) {
+        /*void CLIPSB (int n)
+         * {
+         *   if (R[n] > 0x0000007F)
+         *   {
+         *     R[n] = 0x0000007F;
+         *     CS = 1;
+         *   }
+         *   else if (R[n] < 0xFFFFFF80)
+         *   {
+         *     R[n] = 0xFFFFFF80;
+         *     CS = 1;
+         *   }
+         * 
+         *   PC += 2;
+         * }
+         */
+        r_strbuf_setf (&op->esil,
+                "0x7f,r%d,>,?{,"
+                "    0x7f,r%d,=,"
+                "    1,cs,=,"
+                "    BREAK,"
+                "},"
+                "0xffffff80,r%d,<,?{,"
+                "    0xffffff80,r%d,=,"
+                "    1,cs,=,"
+                "    BREAK,"
+                "}",
+                GET_TARGET_REG (code),
+                GET_TARGET_REG (code),
+                GET_TARGET_REG (code),
+                GET_TARGET_REG (code));
+    } else if (IS_CLIPSW (code)) {
+        r_strbuf_setf (&op->esil,
+                "0x7fff,r%d,>,?{,"
+                "    0x7fff,r%d,=,"
+                "    1,cs,=,"
+                "    BREAK,"
+                "},"
+                "0xffff8000,r%d,<,?{,"
+                "    0xffff8000,r%d,=,"
+                "    1,cs,=,"
+                "    BREAK,"
+                "}",
+                GET_TARGET_REG (code),
+                GET_TARGET_REG (code),
+                GET_TARGET_REG (code),
+                GET_TARGET_REG (code));
+    } else if (IS_CLIPUB (code)) {
+        r_strbuf_setf (&op->esil,
+                "0xff,r%d,>,?{,"
+                "    0xff,r%d,=,"
+                "    1,cs,=,"
+                "}",
+                GET_TARGET_REG (code),
+                GET_TARGET_REG (code));
+    } else if (IS_CLIPUW (code)) {
+        r_strbuf_setf (&op->esil,
+                "0xffff,r%d,>,?{,"
+                "    0xffff,r%d,=,"
+                "    1,cs,=,"
+                "}",
+                GET_TARGET_REG (code),
+                GET_TARGET_REG (code));
+    } else if (IS_DIVS (code)) {
+        r_strbuf_setf (&op->esil,
+                "r0,r%d,/=",
+                GET_TARGET_REG (code));
+    } else if (IS_DIVU (code)) {
+        r_strbuf_setf (&op->esil,
+                "r0,r%d,/=",
+                GET_TARGET_REG (code));
+    } else if (IS_JSRN (code)) {
+        r_strbuf_setf (&op->esil,
+                "pc,pr,=,"
+                "2,pr,+=,"
+                "r%d,pc,=",
+                GET_TARGET_REG (code));
+    } else if (IS_LDBANK (code)) {
+        // Register banks are not implemented, no sense to implement this instruction
+    } else if (IS_LDCL (code)) {
+        // No sgr register
+    } else if (IS_LDC_SGR (code)) {
+        // No sgr register
+    } else if (IS_MULR (code)) {
+        r_strbuf_setf (&op->esil,
+                "r0,r%d,*=",
+                GET_TARGET_REG (code));
+    } else if (IS_STBANK (code)) {
+        // Register banks are not implemented, no sense to implement this instruction
+    } else if (IS_MOVB_R0_REGREFINC (code)) {
+        /* 
+         * void MOVRSBP (int n)
+         * {
+         *   Write_8 (R[n], R[0]);
+         *   R[n] += 1;
+         *   PC += 2;
+         * }
+         */
+        r_strbuf_setf (&op->esil,
+                "r0,r%d,[1],=,r%d,++=",
+                GET_TARGET_REG (code),
+                GET_TARGET_REG (code));
+    } else if (IS_MOVB_REGREFDEC_R0 (code)) {
+        /*
+         * void MOVRSBM (int m)
+         * {
+         *   R[m] -= 1;
+         *   R[0] = Read_16 (R[m]);
+         * 
+         *   if ((R[0] & 0x80) == 0)
+         *     R[0] &= 0x000000FF;
+         *   else
+         *     R[0] |= 0xFFFFFF00;
+         * 
+         *   PC+=2;
+         * }
+         */
+        r_strbuf_setf (&op->esil,
+                "r%d,--=,"
+                "r%d,[1],r0,=,"
+                "r0,0x80,&,?{"
+                "    0xff,r0,&=,"
+                "    break,"
+                "}"
+                "0xffffff00,r0,|=,",
+                GET_TARGET_REG (code),
+                GET_TARGET_REG (code));
+    } else if (IS_MOVL_R0_REGREFINC (code)) {
+        /*
+         * void MOVRSBP (int n)
+         * {
+         *   Write_8 (R[n], R[0]);
+         *   R[n] += 1;
+         *   PC += 2;
+         * }
+         */
+        r_strbuf_setf (&op->esil,
+                "r0,r%d,[4],=,"
+                "4,r%d,+=",
+                GET_TARGET_REG (code),
+                GET_TARGET_REG (code));
+    } else if (IS_MOVL_REGREFDEC_R0 (code)) {
+        /*
+         * void MOVRSLM (int m)
+         * {
+         *   R[m] -= 4;
+         *   R[0] = Read_32 (R[m]);
+         *   PC += 2;
+         * }
+         */
+        r_strbuf_setf (&op->esil,
+                "4,r%d,-=,"
+                "r%d,[4],r0,=",
+                GET_TARGET_REG (code),
+                GET_TARGET_REG (code));
+    } else if (IS_MOVUAL_REGREL_R0 (code)) {
+        r_strbuf_setf (&op->esil,
+                "r%d,[4],r0,=",
+                GET_TARGET_REG (code));
+    } else if (IS_MOVUAL_R0_REGREFINC (code)) {
+        /*
+         * void MOVUALP (int m)
+         * {
+         *   Read_Unaligned_32 (R0,R[m]);
+         * 
+         *   if (m != 0)
+         *     R[m] += 4;
+         * 
+         *   PC += 2;
+         * }
+         */
+        r_strbuf_setf (&op->esil,
+                "r%d,[4],r0,=,"
+                "%d,0,!=,?{"
+                "    4,r%d,+=,"
+                "}",
+                GET_TARGET_REG (code),
+                GET_TARGET_REG (code),
+                GET_TARGET_REG (code));
+    } else if (IS_MOVW_R0_REGREFINC (code)) {
+        /*
+         * void MOVRSWP (int n)
+         * {
+         *   Write_16 (R[n], R[0]);
+         *   R[n] += 2;
+         *   PC += 2;
+         * }
+         */
+        r_strbuf_setf (&op->esil,
+                "r%d,[],r0,=,"
+                "2,r%d,+=",
+                GET_TARGET_REG (code),
+                GET_TARGET_REG (code));
+    } else if (IS_MOVW_REGREFDEC_R0 (code)) {
+        r_strbuf_setf (&op->esil,
+                "2,r%d,-=,"
+                "r%d,[2],r0,=",
+                GET_TARGET_REG (code),
+                GET_TARGET_REG (code));
+    }
+
 	return op->size;
 }
 
@@ -928,6 +1239,66 @@ static int first_nibble_is_8(RAnal* anal, RAnalOp* op, ut16 code) {
 		op->dst = anal_fill_reg_disp_mem (anal, GET_SOURCE_REG (code), code & 0x0F, WORD_SIZE);
 		r_strbuf_setf (&op->esil, "r0,0xFFFF,&,0x%x,r%d,+,=[2]", (code & 0xF) * 2, GET_SOURCE_REG (code));
 	}
+    /* Dolphin */
+    else if (IS_BCLR (code)) {
+        /*
+         * void CLR (int i, int n)
+         * {
+         *   long imm, temp;
+         *   imm = (0x00000007 & (long)i);
+         *   R[n] &= (~(0x00000001 << imm));
+         *   PC += 2;
+         * }
+         */
+       op->type = R_ANAL_OP_TYPE_UNK; 
+
+       r_strbuf_setf (&op->esil,
+               "1,%d,0x7,&,<<,0xFFFFFFFF,^,r%d,&=",
+               code & 0xF,
+               GET_TARGET_REG (code));
+
+    } else if (IS_BLD (code)) {
+        r_strbuf_setf (&op->esil,
+                "1,%d,0x7,&,<<,r%d,&,?{"
+                "    1,sr,|=,"
+                "    BREAK,"
+                " }"
+                " 0xFFFFFFFE,sr,&=",
+                code & 0x7,
+                GET_TARGET_REG (code));
+    } else if (IS_BSET (code)) {
+        r_strbuf_setf (&op->esil,
+                "1,%d,0x7,&,<<,r%d,|=",
+                code & 0x7,
+                GET_TARGET_REG (code));
+
+    } else if (IS_BST (code)) {
+        /*
+         * void BST (int i, int n)
+         * {
+         *   long disp, imm;
+         *   disp = (0x00000FFF & (long)d);
+         *   imm = (0x00000007 & (long)i);
+         * 
+         *   if (T == 0)
+         *     R[n] &= (~(0x00000001 << imm));
+         *   else
+         *     R[n] |= (0x00000001 << imm);
+         * 
+         *   PC += 2;
+         * }
+         */
+        r_strbuf_setf (&op->esil,
+                "sr,1,&,?{"
+                "    1,0x7,%d,&,<<,r%d,|=,"
+                "    BREAK,"
+                "},"
+                "0xFFFFFFFE,r%d,&=",
+                code & 0x7,
+                GET_TARGET_REG (code),
+                GET_TARGET_REG (code));
+        
+    }
 	return op->size;
 }
 
