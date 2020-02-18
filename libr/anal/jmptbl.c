@@ -367,7 +367,7 @@ R_API try_walkthrough_sh4_jmptbl(RAnal *anal, RAnalFunction *fcn, RAnalBlock blo
     int index;
     ut32 dst_addr;
 
-    eprintf("[Dolphin] Starting jmptbl analysis at 0x%x\n", ip);
+    //eprintf("[Dolphin] Starting jmptbl analysis at 0x%x\n", ip);
 	if (jmptbl_size == 0) {
 		jmptbl_size = JMPTBL_MAXSZ_SH4;
 	}
@@ -396,7 +396,9 @@ R_API try_walkthrough_sh4_jmptbl(RAnal *anal, RAnalFunction *fcn, RAnalBlock blo
         if (!memcmp (buf, anal->big_endian ? "\x00\x09" : "\x09\x00", 2)) {
             break;
         }
-        dst_addr = (ip&~0xffff)|(ip+4 + *buf)&0xffff;
+        //dst_addr = (ip&~0xffff)|(ip+4 + *buf)&0xffff;
+        ut32 sign_ext_buf = *buf & 0x8000 ? 0xffff0000 | *buf : 0 | *buf;
+        dst_addr = ip + 4 + sign_ext_buf;
         if (dst_addr == ip+2) {
             continue; // Actually this case throws an ILLSLOT exception. Should we handling this differently?
         }
@@ -405,8 +407,9 @@ R_API try_walkthrough_sh4_jmptbl(RAnal *anal, RAnalFunction *fcn, RAnalBlock blo
             continue;
         }
         ut64 r1;
-        r_anal_esil_reg_read(anal->esil, "r1", &r1, NULL);
-        eprintf("[Dolphin] r1 value: 0x%x at 0x%x\n", r1, ip);
+        eprintf("[Dolphin] Reg used is %s\n", jump_reg_name);
+        r_anal_esil_reg_read(anal->esil, jump_reg_name, &r1, NULL);
+        //eprintf("[Dolphin] r1 value: 0x%x at 0x%x\n", r1, ip);
         //eprintf("[Dolphin] Destination %x at % x from %x\n", dst_addr, jmpptr, ip);
 		//queue_case (anal, ip, sz, dst_addr, index, jmpptr);
         apply_case (anal, block, ip, sz, dst_addr, index, jmpptr);
