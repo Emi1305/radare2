@@ -1346,7 +1346,7 @@ static int first_nibble_is_c(RAnal* anal, RAnalOp* op, ut16 code) {
 		op->dst = anal_fill_ai_rg (anal, 0); //Always R0
         /* Dolphin */
         op->ptr = (op->addr & ~0x3) + ((code & 0xFF)<<2);
-        eprintf("[Dolphin] Jump tbl start at: 0x%x (0x%x + 0x%x)\n", op->ptr, op->addr, (code&0xff)<<2);
+        //eprintf("[Dolphin] Jump tbl start at: 0x%x (0x%x + 0x%x)\n", op->ptr, op->addr, (code&0xff)<<2);
         /***********/
 		r_strbuf_setf (&op->esil, "0x%x,pc,+,r0,=", (code & 0xFF) * 4);
 	} else if (IS_BINLOGIC_IMM_R0 (code)) {	// 110010__i8 (binop) #imm, R0

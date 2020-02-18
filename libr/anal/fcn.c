@@ -811,10 +811,13 @@ repeat:
 				}
 				if (op.dst && op.dst->reg && op.dst->reg->name && op.ptr > 0 && op.ptr != UT64_MAX) {
 					free (last_reg_mov_lea_name);
-					if ((last_reg_mov_lea_name = strdup (op.dst->reg->name))) {
+					if ((last_reg_mov_lea_name = strdup (op.dst->reg->name)) && !is_sh4) {
 						last_reg_mov_lea_val = op.ptr;
 						last_is_reg_mov_lea = true;
-					}
+					} else if ((last_sh4_reg_name = strdup (op.dst->reg->name)) && is_sh4) {
+                        last_sh4_reg_val = op.ptr;
+                        last_is_reg_mov_lea = true;
+                    }
 				}
 			}
 			// skip lea reg,[reg]
@@ -1136,8 +1139,8 @@ repeat:
 					}
 				} else if (is_sh4) {
                     /* Dolphin */
-                    if (op.type == R_ANAL_OP_TYPE_UJMP && last_reg_mov_lea_val != -1) {
-                        eprintf("[Dolphin] last_lea: %s: %x\n", last_reg_mov_lea_name, last_reg_mov_lea_val);
+                    if (op.type == R_ANAL_OP_TYPE_UJMP && last_sh4_reg_val != -1) {
+                        eprintf("[Dolphin] last_lea: %s: %x\n", last_sh4_reg_name, last_sh4_reg_val);
                         eprintf("[Dolphin] op.ireg: %s\n", op.ireg);
                         if (!op.ireg) {
                             eprintf("[Dolphin] No reg at %x\n", op.addr);
@@ -1150,7 +1153,8 @@ repeat:
                         int tablesize = (pred_cmpval != UT64_MAX) ? pred_cmpval : cmpval;
                         //eprintf("[Dolphin] tablesize: %d\n", tablesize);
                         /* Dolphin: Find out how to get the correct address */
-                        ret = try_walkthrough_sh4_jmptbl (anal, fcn, depth, op.addr, last_reg_mov_lea_val, 2, tablesize, UT64_MAX, ret);
+                        ret = try_walkthrough_sh4_jmptbl (anal, fcn, depth, op.addr, last_sh4_reg_name, last_sh4_reg_val, 2, tablesize, UT64_MAX, ret);
+                        free(last_sh4_reg_name);
                         //eprintf("[Dolphin] ret: %x\n", ret);
                         idx += (tablesize);
                     }

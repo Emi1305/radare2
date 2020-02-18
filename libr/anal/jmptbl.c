@@ -344,7 +344,7 @@ R_API bool try_get_jmptbl_info(RAnal *anal, RAnalFunction *fcn, ut64 addr, RAnal
 
 
 /* Dolphin */
-R_API try_walkthrough_sh4_jmptbl(RAnal *anal, RAnalFunction *fcn, int depth, ut64 ip, ut64 jmptbl_loc, ut64 sz, ut64 jmptbl_size, int ret0) {
+R_API try_walkthrough_sh4_jmptbl(RAnal *anal, RAnalFunction *fcn, int depth, ut64 ip, char* jump_reg_name, ut64 jmptbl_loc, ut64 sz, ut64 jmptbl_size, int ret0) {
 	/*
 	 * Example jmptbl for sh4 from firmware
 	 *
@@ -377,7 +377,7 @@ R_API try_walkthrough_sh4_jmptbl(RAnal *anal, RAnalFunction *fcn, int depth, ut6
     int index;
     ut32 dst_addr;
 
-    eprintf("[Dolphin] Starting jmptbl analysis at 0x%x\n", ip);
+    //eprintf("[Dolphin] Starting jmptbl analysis at 0x%x\n", ip);
 	if (jmptbl_size == 0) {
 		jmptbl_size = JMPTBL_MAXSZ_SH4;
 	}
@@ -406,7 +406,9 @@ R_API try_walkthrough_sh4_jmptbl(RAnal *anal, RAnalFunction *fcn, int depth, ut6
         if (!memcmp (buf, anal->big_endian ? "\x00\x09" : "\x09\x00", 2)) {
             break;
         }
-        dst_addr = (ip&~0xffff)|(ip+4 + *buf)&0xffff;
+        //dst_addr = (ip&~0xffff)|(ip+4 + *buf)&0xffff;
+        ut32 sign_ext_buf = *buf & 0x8000 ? 0xffff0000 | *buf : 0 | *buf;
+        dst_addr = ip + 4 + sign_ext_buf;
         if (dst_addr == ip+2) {
             continue; // Actually this case throws an ILLSLOT exception. Should we handling this differently?
         }
@@ -415,8 +417,9 @@ R_API try_walkthrough_sh4_jmptbl(RAnal *anal, RAnalFunction *fcn, int depth, ut6
             continue;
         }
         ut64 r1;
-        r_anal_esil_reg_read(anal->esil, "r1", &r1, NULL);
-        eprintf("[Dolphin] r1 value: 0x%x at 0x%x\n", r1, ip);
+        eprintf("[Dolphin] Reg used is %s\n", jump_reg_name);
+        r_anal_esil_reg_read(anal->esil, jump_reg_name, &r1, NULL);
+        //eprintf("[Dolphin] r1 value: 0x%x at 0x%x\n", r1, ip);
         //eprintf("[Dolphin] Destination %x at % x from %x\n", dst_addr, jmpptr, ip);
 		queue_case (anal, ip, sz, dst_addr, index, jmpptr);
 		(void)r_anal_fcn_bb (anal, fcn, dst_addr, depth - 1);
