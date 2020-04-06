@@ -1,0 +1,10 @@
+default.cc=std
+
+std=cc
+cc.std.name=std
+cc.std.arg0=r4
+cc.std.arg1=r5
+cc.std.arg2=r6
+cc.std.arg3=r7
+cc.std.argn=stack
+cc.std.ret=r0
