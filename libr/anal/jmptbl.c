@@ -334,7 +334,7 @@ R_API bool try_get_jmptbl_info(RAnal *anal, RAnalFunction *fcn, ut64 addr, RAnal
 
 
 /* Dolphin */
-R_API try_walkthrough_sh4_jmptbl(RAnal *anal, RAnalFunction *fcn, RAnalBlock block, int depth, ut64 ip, ut64 jmptbl_loc, ut64 sz, ut64 jmptbl_size, int ret0) {
+R_API try_walkthrough_sh4_jmptbl(RAnal *anal, RAnalFunction *fcn, RAnalBlock *block, int depth, ut64 ip, char* jump_reg_name, ut64 jmptbl_loc, ut64 sz, ut64 jmptbl_size, int ret0) {
 	/*
 	 * Example jmptbl for sh4 from firmware
 	 *
@@ -440,9 +440,8 @@ R_API try_walkthrough_sh4_jmptbl(RAnal *anal, RAnalFunction *fcn, RAnalBlock blo
 	//	// 		"f case.default.0x%"PFMT64x " 1 @ 0x%08"PFMT64x "\n",
 	//	// 		default_case, default_case);
 	//	// }
+	//}
     /*************************************************************************************************/
-
-	}
 fail:
     free(buf);
 	return ret;
